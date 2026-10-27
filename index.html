@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1829">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trhliny">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Analýza trhliny</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@87.5,400;87.5,500;87.5,600;87.5,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: blueprint sheet. Stage (foto + body) nahoře/vlevo, panely s výpočtem a verdiktem vpravo/pod. */
+:root{
+  --bg:#f3f5f1; --paper:#ffffff; --ink:#17233a; --line:#2b4a7e; --muted:#5f6c84;
+  --grid:rgba(43,74,126,.09); --rule:rgba(43,74,126,.22); --field:#ffffff;
+  --accent:#d98e04; --cyan:#1a8aa6; --a:#cf3a2a; --b:#245fc7; --path:#9b2fb8;
+  --good:#2f8f5b; --warn:#c07a10; --crit:#c23a2e; --good-bg:rgba(47,143,91,.10); --warn-bg:rgba(192,122,16,.12); --crit-bg:rgba(194,58,46,.10);
+  --f-ui:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1829; --paper:#15223a; --ink:#e6ecf6; --line:#8db3e8; --muted:#9fb0ca;
+  --grid:rgba(141,179,232,.08); --rule:rgba(141,179,232,.28); --field:#0f1b2f;
+  --accent:#f2b544; --cyan:#5fc8e0; --a:#ff6f5e; --b:#73a3ff; --path:#d57cf0;
+  --good:#5cc48a; --warn:#e8a93c; --crit:#f06b5d; --good-bg:rgba(92,196,138,.14); --warn-bg:rgba(232,169,60,.14); --crit-bg:rgba(240,107,93,.14);
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0e1829; --paper:#15223a; --ink:#e6ecf6; --line:#8db3e8; --muted:#9fb0ca;
+  --grid:rgba(141,179,232,.08); --rule:rgba(141,179,232,.28); --field:#0f1b2f;
+  --accent:#f2b544; --cyan:#5fc8e0; --a:#ff6f5e; --b:#73a3ff; --path:#d57cf0;
+  --good:#5cc48a; --warn:#e8a93c; --crit:#f06b5d; --good-bg:rgba(92,196,138,.14); --warn-bg:rgba(232,169,60,.14); --crit-bg:rgba(240,107,93,.14);
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-ui);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 32px;max-width:1360px;margin:0 auto}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:600}
+h1{font-size:20px;letter-spacing:.01em}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--line);font-family:var(--f-mono);font-weight:600}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+small,.small{font-size:12px}
+
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;padding-bottom:10px;border-bottom:1px solid var(--rule);margin-bottom:12px}
+header .sub{color:var(--muted);font-size:12.5px}
+
+.app{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+@media (min-width:900px){
+  .app{grid-template-columns:minmax(0,3fr) minmax(360px,2fr)}
+  .stage{position:sticky;top:calc(env(safe-area-inset-top,0px) + 8px);align-self:start}
+}
+
+/* ---- stage ---- */
+.stage{display:flex;flex-direction:column;gap:8px;min-width:0}
+.canvas-wrap{position:relative;background:var(--paper);border:1px solid var(--rule);height:58vh;min-height:300px;overflow:hidden}
+@media (min-width:900px){ .canvas-wrap{height:calc(100vh - 190px);min-height:420px} }
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.hud{position:absolute;left:8px;top:8px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.chip{font:11px var(--f-mono);padding:3px 7px;background:var(--bg);border:1px solid var(--rule);color:var(--ink)}
+.chip.demo{border-color:var(--accent);color:var(--accent)}
+.hint{position:absolute;left:8px;right:8px;bottom:8px;font:12px var(--f-ui);color:var(--ink);background:var(--bg);border:1px solid var(--rule);padding:6px 8px;pointer-events:none;opacity:.95}
+.zoom{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:4px}
+.zoom button{width:34px;height:34px;padding:0;font:16px var(--f-mono)}
+
+.modes{display:flex;flex-wrap:wrap;gap:6px}
+.modes button,.modes label{flex:1 1 auto;min-width:0}
+button,label.btn{font:13px/1 var(--f-ui);font-weight:500;color:var(--ink);background:var(--paper);border:1px solid var(--rule);padding:10px 12px;cursor:pointer;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button:hover,label.btn:hover{border-color:var(--line)}
+button:focus-visible,label.btn:focus-within,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button[aria-pressed="true"]{background:var(--line);color:var(--bg);border-color:var(--line)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1a1200;font-weight:600}
+button.ghost{background:transparent}
+button.danger{color:var(--crit)}
+button:disabled{opacity:.45;cursor:default}
+.sw{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+.sw.a{background:var(--a)} .sw.b{background:var(--b)} .sw.sc{background:var(--accent);border-radius:0} .sw.ax{background:var(--cyan);transform:rotate(45deg);border-radius:0} .sw.cr{background:var(--path);border-radius:0;width:14px;height:4px}
+.auto{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px;border:1px solid var(--rule);background:var(--paper)}
+.auto input[type=range]{flex:1 1 120px;min-width:80px;accent-color:var(--path)}
+
+.nudge{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px;border:1px dashed var(--rule);background:var(--paper)}
+.nudge .lbl{flex:1 1 140px;font-size:12.5px}
+.nudge button{padding:8px 10px;min-width:40px}
+
+/* ---- panel ---- */
+.panel{display:flex;flex-direction:column;gap:12px;min-width:0}
+section.card{background:var(--paper);border:1px solid var(--rule);padding:12px}
+section.card>h2{margin-bottom:8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row>*{min-width:0}
+input[type=text],input[type=number],textarea{font:13px var(--f-mono);color:var(--ink);background:var(--field);border:1px solid var(--rule);padding:8px 10px;width:100%}
+input[type=number]{width:110px}
+textarea{width:100%;min-height:120px;resize:vertical;line-height:1.4}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{padding:6px 9px;font-size:12px}
+.status{font-size:12.5px;color:var(--muted)}
+.status b{color:var(--ink)}
+
+table{width:100%;border-collapse:collapse;font:12.5px var(--f-mono);font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+th,td{text-align:right;padding:6px 6px;border-bottom:1px solid var(--rule);white-space:nowrap}
+th{font-weight:500;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+td:first-child,th:first-child{text-align:left}
+tr.sel td{background:var(--warn-bg)}
+tbody tr{cursor:pointer}
+td.del{width:30px;text-align:center}
+td.del button{padding:2px 7px;font-size:12px}
+
+.verdict{border-left:5px solid var(--muted);padding:12px 14px;background:var(--bg)}
+.verdict[data-level=good]{border-color:var(--good);background:var(--good-bg)}
+.verdict[data-level=warn]{border-color:var(--warn);background:var(--warn-bg)}
+.verdict[data-level=crit]{border-color:var(--crit);background:var(--crit-bg)}
+.verdict .kicker{font:11px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.verdict h3{font-size:17px;margin:3px 0 8px;line-height:1.25}
+.verdict p{margin:0 0 6px}
+.verdict ul{margin:6px 0 0;padding-left:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0}
+.kpi{border:1px solid var(--rule);padding:8px 10px;background:var(--paper)}
+.kpi .l{font:11px var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kpi .v{font:600 20px/1.15 var(--f-mono);font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .u{font:12px var(--f-mono);color:var(--muted);margin-left:3px;font-weight:400}
+.kpi.good .v{color:var(--good)} .kpi.warn .v{color:var(--warn)} .kpi.crit .v{color:var(--crit)}
+
+details{border-top:1px solid var(--rule);padding-top:8px}
+summary{cursor:pointer;font-weight:500;font-size:13px}
+ol.steps{margin:8px 0 0;padding-left:20px}
+ol.steps li{margin-bottom:5px}
+.hist{display:flex;flex-direction:column;gap:6px}
+.hist .rec{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;border:1px solid var(--rule);padding:6px 8px;font-size:12.5px}
+.hist .rec .m{font:12px var(--f-mono);color:var(--muted)}
+.hist img{width:72px;height:48px;object-fit:cover;border:1px solid var(--rule);grid-row:span 2}
+.hist .rec{grid-template-columns:auto 1fr auto}
+svg.spark{width:100%;height:84px;display:block;max-width:100%}
+.camov{position:fixed;inset:0;background:#10151c;z-index:50;display:flex;flex-direction:column}
+.camov video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.camov canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.camTop{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));color:#fff;font-size:12px;background:linear-gradient(rgba(0,0,0,.55),transparent)}
+.camTop button{background:rgba(0,0,0,.5);color:#fff;border-color:rgba(255,255,255,.5);padding:8px 12px}
+.camBot{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px max(12px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));background:linear-gradient(transparent,rgba(0,0,0,.6))}
+.camRead{color:#fff;font-size:13px;background:rgba(0,0,0,.5);padding:6px 10px;border:1px solid rgba(255,255,255,.35);text-align:center}
+.shot{display:inline-block;width:72px;height:72px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.4);padding:0;box-shadow:0 0 0 2px #000 inset;cursor:pointer;position:relative;overflow:hidden}
+.shot:active{transform:scale(.94)}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;font:12.5px var(--f-ui);opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){ .toast{transition:none} }
+@media print{ .modes,.nudge,.zoom,.hint,#sec-backup,#sec-help,button{display:none!important} .app{display:block} .canvas-wrap{height:120mm} body{background:#fff} }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+<header>
+  <h1>Analýza trhliny ve zdivu</h1>
+  <span class="sub">Vektor posuvu stejnolehlých bodů → složky m<sub>x</sub> / m<sub>y</sub> → volba sanace (vodorovné sepnutí × zajištění základů)</span>
+</header>
+
+<div class="app">
+  <div class="stage">
+    <div class="canvas-wrap" id="cwrap">
+      <canvas id="cv" aria-label="Snímek trhliny s měřenými body"></canvas>
+      <div class="hud" id="hud"></div>
+      <div class="zoom"><button type="button" id="zin" aria-label="Přiblížit">+</button><button type="button" id="zout" aria-label="Oddálit">−</button><button type="button" id="zfit" aria-label="Celý snímek" style="font-size:11px">⊡</button></div>
+      <div class="hint" id="hint"></div>
+    </div>
+    <div class="modes" role="toolbar" aria-label="Režim">
+      <button type="button" id="photoBtn">📷 Vyfotit</button>
+      <label class="btn" id="photoLbl" hidden>📷 Vyfotit<input type="file" id="file0" accept="image/*" capture="environment" hidden></label>
+      <label class="btn" id="galBtn">🖼 Z galerie<input type="file" id="file2" accept="image/*" hidden></label>
+      <button type="button" data-mode="scale" id="m-scale"><span class="sw sc"></span>Měřítko</button>
+      <button type="button" data-mode="axis" id="m-axis"><span class="sw ax"></span>Osa spáry</button>
+      <button type="button" data-mode="crack" id="m-crack"><span class="sw cr"></span>Trasa trhliny</button>
+      <button type="button" data-mode="pair" id="m-pair"><span class="sw a"></span><span class="sw b"></span>Dvojice ručně</button>
+      <button type="button" data-mode="pan" id="m-pan">✥ Posun</button>
+    </div>
+    <div class="auto" id="autoRow">
+      <button type="button" class="primary" id="autoFind">⌕ Najít stejnolehlé body</button>
+      <label class="small" for="autoW">šířka hledání <span class="mono" id="autoWv">30</span> px</label>
+      <input type="range" id="autoW" min="12" max="90" step="2" value="30">
+      <button type="button" class="ghost" id="pathClear">Smazat trasu</button>
+      <span class="status" id="autoStatus" style="flex:1 1 100%">Bez označené trasy se aplikace pokusí trhlinu najít sama (nejdelší tmavá linie). Lepší výsledek: klepněte začátek, konec a případně mezilehlé body trhliny.</span>
+    </div>
+    <div class="nudge" id="nudge" hidden>
+      <span class="lbl" id="nudgeLbl">Vybraný bod</span>
+      <button type="button" data-n="-1,0" aria-label="Doleva">←</button>
+      <button type="button" data-n="0,-1" aria-label="Nahoru">↑</button>
+      <button type="button" data-n="0,1" aria-label="Dolů">↓</button>
+      <button type="button" data-n="1,0" aria-label="Doprava">→</button>
+      <button type="button" id="selCenter" title="Vystředit a přiblížit">⌖</button>
+      <button type="button" class="danger" id="selDel">Smazat</button>
+      <button type="button" class="ghost" id="selOff">Zrušit výběr</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <section class="card" id="sec-verdict">
+      <h2>Vyhodnocení</h2>
+      <div class="verdict" id="verdict" data-level="neutral"></div>
+      <div class="kpis" id="kpis"></div>
+      <div id="kin" class="small"></div>
+    </section>
+
+    <section class="card">
+      <h2>Měřítko a osa</h2>
+      <div class="row">
+        <label for="scaleLen" class="small">Délka úsečky měřítka</label>
+        <input type="number" id="scaleLen" min="1" step="1" value="290"><span class="mono small">mm</span>
+      </div>
+      <div class="presets" style="margin-top:6px">
+        <button type="button" data-len="290">cihla 290</button>
+        <button type="button" data-len="140">cihla 140</button>
+        <button type="button" data-len="65">cihla 65</button>
+        <button type="button" data-len="100">pravítko 100</button>
+        <button type="button" data-len="200">200</button>
+        <button type="button" data-len="300">300</button>
+      </div>
+      <p class="status" id="scaleStatus" style="margin:8px 0 0"></p>
+      <p class="status" id="axisStatus" style="margin:4px 0 0"></p>
+      <div class="row" style="margin-top:6px"><button type="button" id="jointBtn">⟷ Najít osu ze spár</button><span class="status" id="jointStatus"></span></div>
+    </section>
+
+    <section class="card">
+      <h2>Dvojice stejnolehlých bodů</h2>
+      <p class="small muted" style="margin:0 0 8px">A = bod na <b>levé / spodní</b> části, B = tentýž bod na druhé straně trhliny. Vektor A→B je posuv části B vůči části A. Kladné m<sub>x</sub> = vodorovné rozevření, záporné m<sub>y</sub> = část B poklesla. Automaticky nalezené dvojice mají ve sloupci „shoda“ podíl bodů okraje, které po posunu sedí na druhý okraj.</p>
+      <div class="tw"><table id="pairs"><thead><tr><th>#</th><th>m<sub>x</sub> [mm]</th><th>m<sub>y</sub> [mm]</th><th>šířka [mm]</th><th>|m<sub>x</sub>|/|m<sub>y</sub>|</th><th></th></tr></thead><tbody></tbody></table></div>
+      <div class="row" style="margin-top:8px">
+        <button type="button" id="undoPair" class="ghost">↶ Odebrat poslední</button>
+        <button type="button" id="clearAll" class="ghost danger">Vymazat body</button>
+      </div>
+    </section>
+
+    <section class="card" id="sec-monitor">
+      <h2>Sledování v čase</h2>
+      <div class="row">
+        <input type="text" id="crackName" list="crackNames" placeholder="Označení trhliny, např. T1 – severní štít" style="flex:1 1 200px">
+        <datalist id="crackNames"></datalist>
+        <button type="button" class="primary" id="saveRec">Uložit měření</button>
+      </div>
+      <div id="trend" style="margin-top:10px"></div>
+      <div class="hist" id="hist" style="margin-top:8px"></div>
+      <p class="small muted" style="margin:8px 0 0">Záznamy se ukládají jen v tomto prohlížeči. Pro porovnání v čase měřte vždy tytéž dvojice bodů (fixní značky na zdivu) a foťte kolmo ze stejné vzdálenosti. Aktivní trhlina = zřetelný nárůst šířky; periodický průběh = teplotní vliv.</p>
+    </section>
+
+    <section class="card">
+      <h2>Protokol</h2>
+      <textarea id="proto" readonly aria-label="Text protokolu"></textarea>
+      <div class="row" style="margin-top:8px"><button type="button" id="copyProto">Kopírovat protokol</button></div>
+    </section>
+
+    <section class="card" id="sec-backup">
+      <h2>Záloha</h2>
+      <div class="row">
+        <button type="button" id="expBtn">Kopírovat zálohu (JSON)</button>
+        <button type="button" id="impBtn" class="ghost">Načíst ze schránky…</button>
+      </div>
+      <textarea id="impTxt" hidden placeholder="Vložte JSON zálohy a stiskněte Načíst" style="margin-top:8px;min-height:80px"></textarea>
+      <div class="row" id="impRow" hidden style="margin-top:6px"><button type="button" id="impGo" class="primary">Načíst</button></div>
+    </section>
+
+    <section class="card" id="sec-help">
+      <details>
+        <summary>Postup měření a metodika</summary>
+        <ol class="steps small">
+          <li><b>Foto</b> – kolmo na líc zdiva, celá délka trhliny, ostré, s pravítkem nebo známým rozměrem cihly v záběru. Trhlina by neměla být zakrytá omítkou v místech lomů. „Vyfotit“ nejdřív ukáže vodováhu (senzory telefonu): rotace kolem osy pohledu a náklon od svislice, zelená = do 1°. Spoušť pak otevře foťák telefonu; úhel z okamžiku spouště nastaví osu x podle skutečné vodoroviny, takže drobná rotace nevadí – telefon ale mezi spouští a fotkou nenatáčejte. Náklon od svislice (nekolmý snímek) zkresluje rozměry, ten srovnejte. Natočení do strany (šikmý pohled na zeď) senzory nezměří, hlídejte rovnoběžnost spár s hranou záběru. Na https lze zapnout živý náhled a fotit přímo z něj.</li>
+          <li><b>Měřítko</b> – dva body na známé délce (hrana cihly 290 mm, pravítko). Poměr m<sub>x</sub>/m<sub>y</sub> měřítko nepotřebuje, šířky v mm ano.</li>
+          <li><b>Osa x</b> – po načtení fotky ji aplikace najde sama podle ložných spár (natáčí průmět obrazu a hledá úhel, ve kterém jsou spáry nejostřejší; přesnost řádově setiny stupně). Složka m<sub>x</sub> se měří rovnoběžně se spárou, m<sub>y</sub> kolmo – přesně podle definice „rovnoběžně se základovou spárou“. Na omítnuté zdi bez viditelných spár se použije vodováha z focení (jen na https), jinak zadejte osu ručně dvěma body v režimu „Osa spáry“. Je-li k dispozici vodováha i spáry, ukáže se i sklon spár vůči skutečné vodorovině – sám o sobě indikátor pootočení části zdiva.</li>
+          <li><b>Trasa trhliny + Najít stejnolehlé body</b> – klepněte začátek a konec trhliny (u klikatých trhlin i mezilehlé body), aplikace vytrasuje tmavou linii, extrahuje oba okraje a v oknech po délce hledá posun, při kterém levý okraj splyne s pravým (okraje trhliny jsou tvarově komplementární). Uzavřené úseky (ložné spáry bez rozevření) přeskočí; rovné úseky bez lomu posun podél hrany neurčí, proto vyžaduje zuby. Sloupec „shoda“ = podíl bodů okraje, které po posunu sedí. Bez trasy zkusí trhlinu najít sama.</li>
+          <li><b>Dvojice ručně</b> – na charakteristickém lomu okraje trhliny klepněte bod A na jedné části a odpovídající bod B na druhé. Opakujte po celé délce trhliny (min. 3 dvojice, lépe 5+). Body lze doladit šipkami po 1 px. Automaticky nalezené dvojice lze stejně upravit nebo smazat.</li>
+          <li><b>Vyhodnocení</b> – empirické kritérium m<sub>x</sub> ≥ m<sub>y</sub> po celé délce trhliny → převažuje vodorovné odsouvání → vhodné vodorovné sepnutí (dodatečné předpětí), svislou složku lze zanedbat. Při typickém rozestupování bývá poměr 8–10. Převaha m<sub>y</sub> → pokles podzákladí → řešit založení (piloty, podchycení).</li>
+          <li><b>Kinematický rozbor</b> – i když vodorovná složka převládá, může jít o pootáčení částí kolem středů otáčení vlivem dílčích poklesů (obr. 4.2). Aplikace fituje posuvy dvojic modelem tuhého tělesa (translace + rotace); významná rotace nebo změna znaménka m<sub>x</sub> po délce trhliny jsou varováním, že samotné sepnutí bez zvýšení svislé tuhosti by bylo mylné.</li>
+        </ol>
+        <p class="small muted">Nástroj je pomůckou pro rozhodnutí statika, nenahrazuje stavebně-technický průzkum ani dlouhodobé sledování trhlin. Přesnost závisí na kolmosti snímku, rozlišení a správné identifikaci stejnolehlých bodů.</p>
+      </details>
+    </section>
+  </div>
+</div>
+</div>
+<div class="camov" id="camOv" hidden>
+  <video id="camV" playsinline autoplay muted hidden></video>
+  <canvas id="camC" aria-hidden="true"></canvas>
+  <div class="camTop"><span id="camInfo" class="mono">Srovnejte telefon svisle a kolmo na zeď, pak stiskněte spoušť – otevře se foťák.</span><button type="button" id="camClose" aria-label="Zavřít">✕</button></div>
+  <div class="camBot"><div class="camRead mono" id="camRead">vodováha: čekám na senzory</div><div class="row" style="justify-content:center"><button type="button" id="camLive" class="ghost" style="color:#fff;border-color:rgba(255,255,255,.5)" hidden>živý náhled</button><label id="camShot" class="shot" aria-label="Vyfotit"><input type="file" id="file" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></label></div></div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), wrap = $('#cwrap'), ctx = cv.getContext('2d');
+const LS_STATE = 'trhlina.state.v1', LS_HIST = 'trhlina.hist.v1';
+let CW = 0, CH = 0, DPR = 1;
+
+const S = { img:null, iw:0, ih:0, imgData:null, scale:{p1:null,p2:null,len:290}, axis:{p1:null,p2:null}, pairs:[], pending:null, mode:'pair', sel:null, view:{s:1,ox:0,oy:0}, demo:false, name:'', path:[], auto:null };
+let R = null; // výsledky výpočtu
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const hyp = (a,b)=>Math.hypot(b.x-a.x,b.y-a.y);
+const fmt = (v,d=1)=> (v==null||!isFinite(v)) ? '–' : v.toLocaleString('cs-CZ',{minimumFractionDigits:d,maximumFractionDigits:d});
+const toast = m => { const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('on'),1800); };
+
+/* ---------- view ---------- */
+function resize(){ const r=wrap.getBoundingClientRect(); DPR=devicePixelRatio||1; CW=r.width; CH=r.height; cv.width=Math.round(CW*DPR); cv.height=Math.round(CH*DPR); draw(); }
+function fitView(){ if(!S.img){return;} const s=Math.min(CW/S.iw,CH/S.ih)*0.98; S.view={s,ox:(CW-S.iw*s)/2,oy:(CH-S.ih*s)/2}; draw(); }
+const toImg=(x,y)=>({x:(x-S.view.ox)/S.view.s,y:(y-S.view.oy)/S.view.s});
+const toScr=p=>({x:p.x*S.view.s+S.view.ox,y:p.y*S.view.s+S.view.oy});
+function zoomAt(f,sx,sy){ const v=S.view; const ns=Math.min(Math.max(v.s*f, S.img?Math.min(CW/S.iw,CH/S.ih)*0.25:0.1), 40); const ip=toImg(sx,sy); v.s=ns; v.ox=sx-ip.x*ns; v.oy=sy-ip.y*ns; draw(); }
+
+/* ---------- pointer gestures ---------- */
+const ptrs=new Map(); let gest=null;
+cv.addEventListener('pointerdown',e=>{ cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.offsetX,y:e.offsetY});
+  if(ptrs.size===1) gest={type:'tap',sx:e.offsetX,sy:e.offsetY,ox:S.view.ox,oy:S.view.oy,moved:false};
+  else if(ptrs.size===2){ const [p,q]=[...ptrs.values()]; gest={type:'pinch',d0:hyp(p,q),m0:{x:(p.x+q.x)/2,y:(p.y+q.y)/2},s0:S.view.s,ox0:S.view.ox,oy0:S.view.oy}; }
+});
+cv.addEventListener('pointermove',e=>{ if(!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId,{x:e.offsetX,y:e.offsetY}); if(!gest) return;
+  if(gest.type==='tap'&&ptrs.size===1){ const dx=e.offsetX-gest.sx, dy=e.offsetY-gest.sy; if(!gest.moved&&Math.hypot(dx,dy)>8) gest.moved=true; if(gest.moved){ S.view.ox=gest.ox+dx; S.view.oy=gest.oy+dy; draw(); } }
+  else if(gest.type==='pinch'&&ptrs.size===2){ const [p,q]=[...ptrs.values()]; const d=hyp(p,q), m={x:(p.x+q.x)/2,y:(p.y+q.y)/2}; const ns=Math.min(Math.max(gest.s0*d/gest.d0,0.05),40); const ipx=(gest.m0.x-gest.ox0)/gest.s0, ipy=(gest.m0.y-gest.oy0)/gest.s0; S.view.s=ns; S.view.ox=m.x-ipx*ns; S.view.oy=m.y-ipy*ns; draw(); }
+});
+const up=e=>{ const had=ptrs.has(e.pointerId); ptrs.delete(e.pointerId); if(!had) return;
+  if(gest&&gest.type==='tap'&&!gest.moved&&ptrs.size===0&&e.type==='pointerup') handleTap(gest.sx,gest.sy);
+  if(ptrs.size===0) gest=null; else if(ptrs.size===1) gest={type:'tap',moved:true,sx:0,sy:0,ox:S.view.ox,oy:S.view.oy}; };
+cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
+cv.addEventListener('wheel',e=>{ e.preventDefault(); zoomAt(e.deltaY<0?1.15:1/1.15,e.offsetX,e.offsetY); },{passive:false});
+$('#zin').onclick=()=>zoomAt(1.4,CW/2,CH/2); $('#zout').onclick=()=>zoomAt(1/1.4,CW/2,CH/2); $('#zfit').onclick=fitView;
+
+/* ---------- points ---------- */
+function* allPoints(){
+  if(S.scale.p1) yield {type:'scale',which:'p1',pt:S.scale.p1,label:'Měřítko 1'};
+  if(S.scale.p2) yield {type:'scale',which:'p2',pt:S.scale.p2,label:'Měřítko 2'};
+  if(S.axis.p1) yield {type:'axis',which:'p1',pt:S.axis.p1,label:'Osa 1'};
+  if(S.axis.p2) yield {type:'axis',which:'p2',pt:S.axis.p2,label:'Osa 2'};
+  for(let i=0;i<S.pairs.length;i++){ yield {type:'pair',idx:i,which:'a',pt:S.pairs[i].a,label:`A${i+1}`}; yield {type:'pair',idx:i,which:'b',pt:S.pairs[i].b,label:`B${i+1}`}; }
+  if(S.pending) yield {type:'pending',pt:S.pending,label:'A (čeká na B)'};
+  for(let i=0;i<S.path.length;i++) yield {type:'path',idx:i,pt:S.path[i],label:`Trasa ${i+1}`};
+}
+function selPt(){ if(!S.sel) return null; const s=S.sel; if(s.type==='scale') return S.scale[s.which]; if(s.type==='axis') return S.axis[s.which]; if(s.type==='pair') return S.pairs[s.idx]&&S.pairs[s.idx][s.which]; if(s.type==='pending') return S.pending; if(s.type==='path') return S.path[s.idx]; return null; }
+
+function handleTap(sx,sy){
+  if(!S.img) { $('#file').click(); return; }
+  const ip=toImg(sx,sy);
+  // výběr existujícího bodu
+  let best=null,bd=16;
+  for(const p of allPoints()){ const sp=toScr(p.pt); const d=Math.hypot(sp.x-sx,sp.y-sy); if(d<bd){bd=d;best=p;} }
+  if(best){ S.sel={type:best.type,idx:best.idx,which:best.which}; update(); return; }
+  if(S.mode==='pan'){ S.sel=null; update(); return; }
+  if(S.demo){ S.demo=false; }
+  if(S.mode==='scale'){ const sc=S.scale; if(!sc.p1||sc.p2){ sc.p1=ip; sc.p2=null; S.sel={type:'scale',which:'p1'}; } else { sc.p2=ip; S.sel={type:'scale',which:'p2'}; } }
+  else if(S.mode==='axis'){ S.axisSrc='manual'; const ax=S.axis; if(!ax.p1||ax.p2){ ax.p1=ip; ax.p2=null; S.sel={type:'axis',which:'p1'}; } else { ax.p2=ip; S.sel={type:'axis',which:'p2'}; } }
+  else if(S.mode==='pair'){ if(!S.pending){ S.pending=ip; S.sel={type:'pending'}; } else { S.pairs.push({a:S.pending,b:ip}); S.pending=null; S.sel={type:'pair',idx:S.pairs.length-1,which:'b'}; } }
+  else if(S.mode==='crack'){ S.path.push(ip); S.auto=null; S.sel={type:'path',idx:S.path.length-1}; }
+  update();
+}
+function setMode(m){ S.mode=m; document.querySelectorAll('.modes button[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m))); update(); }
+document.querySelectorAll('.modes button[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+
+document.querySelectorAll('#nudge button[data-n]').forEach(b=>b.onclick=()=>{ const p=selPt(); if(!p) return; const [dx,dy]=b.dataset.n.split(',').map(Number); const step=Math.max(0.25,1/Math.max(1,S.view.s/2)); p.x+=dx*step; p.y+=dy*step; S.demo=false; update(); });
+$('#selDel').onclick=()=>{ const s=S.sel; if(!s) return; S.demo=false;
+  if(s.type==='scale'){ if(s.which==='p1'){ S.scale.p1=S.scale.p2; } S.scale.p2=null; }
+  else if(s.type==='axis'){ if(s.which==='p1'){ S.axis.p1=S.axis.p2; } S.axis.p2=null; }
+  else if(s.type==='pair'){ S.pairs.splice(s.idx,1); }
+  else if(s.type==='pending'){ S.pending=null; }
+  else if(s.type==='path'){ S.path.splice(s.idx,1); S.auto=null; }
+  S.sel=null; update(); };
+$('#pathClear').onclick=()=>{ S.path=[]; S.auto=null; S.sel=null; $('#autoStatus').textContent='Trasa smazána.'; update(); };
+$('#autoW').oninput=e=>{ $('#autoWv').textContent=e.target.value; };
+$('#selOff').onclick=()=>{ S.sel=null; update(); };
+$('#selCenter').onclick=()=>{ const p=selPt(); if(!p) return; const ns=Math.max(S.view.s,6); S.view.s=ns; S.view.ox=CW/2-p.x*ns; S.view.oy=CH/2-p.y*ns; draw(); };
+$('#undoPair').onclick=()=>{ if(S.pending) S.pending=null; else S.pairs.pop(); S.sel=null; S.demo=false; update(); };
+$('#clearAll').onclick=()=>{ S.pairs=[]; S.pending=null; S.scale.p1=S.scale.p2=null; S.axis.p1=S.axis.p2=null; S.path=[]; S.auto=null; S.sel=null; S.demo=false; update(); };
+$('#scaleLen').oninput=e=>{ S.scale.len=Math.max(0.1,parseFloat(e.target.value)||0); update(); };
+document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ $('#scaleLen').value=b.dataset.len; S.scale.len=+b.dataset.len; update(); });
+$('#crackName').oninput=e=>{ S.name=e.target.value; renderHist(); saveState(); };
+
+/* ---------- foto ---------- */
+const onFile=async e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; e.target.value='';
+  try{ const bmp = (window.createImageBitmap) ? await createImageBitmap(f,{imageOrientation:'from-image'}).catch(()=>null) : null;
+    let src=bmp; if(!src){ src=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=URL.createObjectURL(f); }); }
+    const w=src.width,h=src.height, k=Math.min(1,2400/Math.max(w,h)); const oc=document.createElement('canvas'); oc.width=Math.round(w*k); oc.height=Math.round(h*k); oc.getContext('2d').drawImage(src,0,0,oc.width,oc.height);
+    const lv=e.target.id==='file'?takePendingLevel():null; setImage(oc.toDataURL('image/jpeg',0.9),true,()=>autoAxis(lv));
+  }catch(err){ toast('Snímek se nepodařilo načíst'); }
+};
+$('#file').addEventListener('change',onFile); $('#file2').addEventListener('change',onFile); $('#file0').addEventListener('change',onFile);
+function setImage(dataUrl,fresh,after){ const im=new Image(); im.onload=()=>{ S.img=im; S.iw=im.naturalWidth; S.ih=im.naturalHeight; S.imgData=dataUrl; S._gray=null; S._small=null; if(fresh){ S.pairs=[]; S.pending=null; S.scale.p1=S.scale.p2=null; S.axis.p1=S.axis.p2=null; S.axisLevel=null; S.axisSrc=null; S.joints=null; S.path=[]; S.auto=null; S.sel=null; S.demo=false; setMode('scale'); } if(after) after(); fitView(); update(); }; im.src=dataUrl; }
+
+/* ---------- výpočet ---------- */
+function compute(){
+  const sc=S.scale; const k=(sc.p1&&sc.p2&&hyp(sc.p1,sc.p2)>0)?sc.len/hyp(sc.p1,sc.p2):null; const kk=k||1; const unit=k?'mm':'px';
+  let u={x:1,y:0}; if(S.axis.p1&&S.axis.p2&&hyp(S.axis.p1,S.axis.p2)>0){ const d=hyp(S.axis.p1,S.axis.p2); u={x:(S.axis.p2.x-S.axis.p1.x)/d,y:(S.axis.p2.y-S.axis.p1.y)/d}; if(u.x<0) u={x:-u.x,y:-u.y}; }
+  const v={x:u.y,y:-u.x}; // kolmo, kladně nahoru
+  const rows=S.pairs.map((p,i)=>{ const dx=p.b.x-p.a.x, dy=p.b.y-p.a.y; const mx=(dx*u.x+dy*u.y)*kk, my=(dx*v.x+dy*v.y)*kk; const m={x:(p.a.x+p.b.x)/2,y:(p.a.y+p.b.y)/2}; return {i,mx,my,w:Math.hypot(mx,my),ratio:Math.abs(my)>1e-9?Math.abs(mx)/Math.abs(my):Infinity,X:(m.x*u.x+m.y*u.y)*kk,Y:(m.x*v.x+m.y*v.y)*kk}; });
+  const n=rows.length; const res={k,unit,u,v,rows,n,hasScale:!!k,hasAxis:!!(S.axis.p1&&S.axis.p2)};
+  if(n===0){ res.code='few'; res.level='neutral'; return res; }
+  const sMx=rows.reduce((s,r)=>s+Math.abs(r.mx),0), sMy=rows.reduce((s,r)=>s+Math.abs(r.my),0);
+  res.R=sMy>1e-9?sMx/sMy:Infinity; res.share=rows.filter(r=>Math.abs(r.mx)>=Math.abs(r.my)).length;
+  res.wMean=rows.reduce((s,r)=>s+r.w,0)/n; res.wMax=Math.max(...rows.map(r=>r.w)); res.wMin=Math.min(...rows.map(r=>r.w));
+  res.mxMean=rows.reduce((s,r)=>s+r.mx,0)/n; res.myMean=rows.reduce((s,r)=>s+r.my,0)/n;
+  // kinematika – tuhé těleso
+  if(n>=2){ const Xc=rows.reduce((s,r)=>s+r.X,0)/n, Yc=rows.reduce((s,r)=>s+r.Y,0)/n; let num=0,den=0,Rmax=0;
+    rows.forEach(r=>{ const rx=r.X-Xc, ry=r.Y-Yc; num+=rx*r.my-ry*r.mx; den+=rx*rx+ry*ry; Rmax=Math.max(Rmax,Math.hypot(rx,ry)); });
+    const th=den>1e-9?num/den:0; const tx=res.mxMean, ty=res.myMean; const T=Math.hypot(tx,ty);
+    let rss=0; rows.forEach(r=>{ const rx=r.X-Xc, ry=r.Y-Yc; const ex=r.mx-(tx-th*ry), ey=r.my-(ty+th*rx); rss+=ex*ex+ey*ey; });
+    res.kin={theta:th,tx,ty,T,Rmax,rho:T>1e-9?Math.abs(th)*Rmax/T:(Math.abs(th)>0?Infinity:0),rms:Math.sqrt(rss/n),span:Rmax*2};
+    if(Math.abs(th)>1e-9){ const cx=Xc-ty/th, cy=Yc+tx/th; res.kin.center={X:cx,Y:cy,px:{x:(cx*u.x+cy*v.x)/kk,y:(cx*u.y+cy*v.y)/kk}}; }
+    const tol=k?0.3:1; const pos=rows.some(r=>r.mx>tol), neg=rows.some(r=>r.mx<-tol); res.signChange=pos&&neg;
+    res.rotFlag=(n>=3&&res.kin.rho>0.5)||res.signChange;
+  } else { res.kin=null; res.rotFlag=false; res.signChange=false; }
+  // verdikt
+  const Rv=res.R, shareOk=res.share/n>=0.75;
+  if(n<2){ res.code='few'; res.level='neutral'; }
+  else if(Rv>=1.25&&shareOk&&!res.rotFlag){ res.code='H'; res.level='good'; }
+  else if(Rv>=1.25&&(res.rotFlag||!shareOk)){ res.code='HR'; res.level='warn'; }
+  else if(Rv<=0.8){ res.code='V'; res.level='crit'; }
+  else { res.code='U'; res.level='warn'; }
+  return res;
+}
+
+/* ---------- render ---------- */
+function update(){ R=compute(); draw(); renderPanel(); renderNudge(); renderHist(); renderProto(); saveState(); }
+
+function draw(){ ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,CW,CH);
+  const paper=css('--paper'), ink=css('--ink'), muted=css('--muted');
+  ctx.fillStyle=paper; ctx.fillRect(0,0,CW,CH);
+  if(!S.img){ ctx.fillStyle=muted; ctx.font='500 15px '+css('--f-ui'); ctx.textAlign='center'; ctx.fillText('Klepněte pro načtení fotografie trhliny',CW/2,CH/2-10); ctx.font='12px '+css('--f-ui'); ctx.fillText('kolmo na zdivo, s pravítkem nebo celou cihlou v záběru',CW/2,CH/2+12); ctx.textAlign='left'; return; }
+  const v=S.view; ctx.imageSmoothingEnabled=v.s<2.5; ctx.drawImage(S.img,v.ox,v.oy,S.iw*v.s,S.ih*v.s);
+  const sel=S.sel; const isSel=(t,i,w)=>sel&&sel.type===t&&sel.idx===i&&sel.which===w;
+  ctx.lineCap='round'; ctx.lineJoin='round'; ctx.font='600 11px '+css('--f-mono');
+  const label=(txt,x,y,col)=>{ ctx.font='600 11px '+css('--f-mono'); const w=ctx.measureText(txt).width+8; ctx.fillStyle=paper; ctx.fillRect(x-1,y-13,w,15); ctx.fillStyle=col; ctx.fillText(txt,x+3,y-2); };
+  const dot=(p,col,shape,selected,hollow)=>{ const s=toScr(p); ctx.lineWidth=2; ctx.strokeStyle=col; ctx.fillStyle=hollow?'transparent':col; ctx.beginPath();
+    if(shape==='sq'){ ctx.rect(s.x-5,s.y-5,10,10); } else if(shape==='dm'){ ctx.moveTo(s.x,s.y-7); ctx.lineTo(s.x+7,s.y); ctx.lineTo(s.x,s.y+7); ctx.lineTo(s.x-7,s.y); ctx.closePath(); } else { ctx.arc(s.x,s.y,5.5,0,Math.PI*2); }
+    if(!hollow) ctx.fill(); ctx.stroke();
+    // nitkový kříž
+    ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(s.x-11,s.y); ctx.lineTo(s.x-7,s.y); ctx.moveTo(s.x+7,s.y); ctx.lineTo(s.x+11,s.y); ctx.moveTo(s.x,s.y-11); ctx.lineTo(s.x,s.y-7); ctx.moveTo(s.x,s.y+7); ctx.lineTo(s.x,s.y+11); ctx.stroke();
+    if(selected){ ctx.strokeStyle=ink; ctx.lineWidth=2; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.arc(s.x,s.y,13,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); } };
+  // trasa trhliny + nalezené okraje
+  const pc=css('--path');
+  if(S.auto&&S.auto.center&&S.auto.center.length>1){ ctx.strokeStyle=pc; ctx.lineWidth=1; ctx.globalAlpha=.7; ctx.setLineDash([4,4]); ctx.beginPath(); S.auto.center.forEach((p,i)=>{ const s=toScr(p); i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y); }); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
+    const edge=(arr,col)=>{ ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.beginPath(); let pen=false; arr.forEach(p=>{ if(!p){pen=false;return;} const s=toScr(p); pen?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y); pen=true; }); ctx.stroke(); };
+    edge(S.auto.L,css('--a')); edge(S.auto.R,css('--b')); }
+  else if(S.path.length>1){ ctx.strokeStyle=pc; ctx.lineWidth=1.5; ctx.setLineDash([6,5]); ctx.beginPath(); S.path.forEach((p,i)=>{ const s=toScr(p); i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y); }); ctx.stroke(); ctx.setLineDash([]); }
+  S.path.forEach((p,i)=>dot(p,pc,'sq',S.sel&&S.sel.type==='path'&&S.sel.idx===i,true));
+  // osa
+  const cyan=css('--cyan');
+  if(S.axis.p1&&S.axis.p2){ const a=toScr(S.axis.p1), b=toScr(S.axis.p2); const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1; const ex=dx/L*4000, ey=dy/L*4000; ctx.strokeStyle=cyan; ctx.lineWidth=1.2; ctx.setLineDash([8,6]); ctx.beginPath(); ctx.moveTo(a.x-ex,a.y-ey); ctx.lineTo(b.x+ex,b.y+ey); ctx.stroke(); ctx.setLineDash([]); label('osa ložné spáry (x)',a.x+10,a.y-8,cyan); }
+  if(S.axis.p1) dot(S.axis.p1,cyan,'dm',isSel('axis',undefined,'p1')); if(S.axis.p2) dot(S.axis.p2,cyan,'dm',isSel('axis',undefined,'p2'));
+  // měřítko
+  const acc=css('--accent');
+  if(S.scale.p1&&S.scale.p2){ const a=toScr(S.scale.p1), b=toScr(S.scale.p2); ctx.strokeStyle=acc; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); label(`${fmt(S.scale.len,0)} mm`,(a.x+b.x)/2-10,(a.y+b.y)/2-8,acc); }
+  if(S.scale.p1) dot(S.scale.p1,acc,'sq',isSel('scale',undefined,'p1')); if(S.scale.p2) dot(S.scale.p2,acc,'sq',isSel('scale',undefined,'p2'));
+  // dvojice
+  const ca=css('--a'), cb=css('--b');
+  S.pairs.forEach((p,i)=>{ const a=toScr(p.a), b=toScr(p.b); const r=R&&R.rows[i];
+    if(r&&R.u){ // rozklad: a → a+mx·u → b (u,v ve screen = image směr, y dolů)
+      const mxpx=r.mx/(R.k||1)*S.view.s; const c={x:a.x+R.u.x*mxpx,y:a.y+R.u.y*mxpx}; ctx.strokeStyle=ink; ctx.globalAlpha=.55; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(c.x,c.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1; }
+    // vektor
+    const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy); ctx.strokeStyle=acc; ctx.fillStyle=acc; ctx.lineWidth=2.2; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    if(L>14){ const ux=dx/L, uy=dy/L; ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-ux*9-uy*4.5,b.y-uy*9+ux*4.5); ctx.lineTo(b.x-ux*9+uy*4.5,b.y-uy*9-ux*4.5); ctx.closePath(); ctx.fill(); }
+    dot(p.a,ca,'c',isSel('pair',i,'a')); dot(p.b,cb,'c',isSel('pair',i,'b'));
+    label(`${i+1}`,a.x-20,a.y-8,ca); if(r) label(`${fmt(r.mx)} / ${fmt(r.my)}`,b.x+10,b.y+16,ink); });
+  if(S.pending) dot(S.pending,ca,'c',S.sel&&S.sel.type==='pending',true);
+  // střed otáčení
+  if(R&&R.rotFlag&&R.kin&&R.kin.center){ const c=toScr(R.kin.center.px); if(c.x>-50&&c.x<CW+50&&c.y>-50&&c.y<CH+50){ ctx.strokeStyle=css('--warn'); ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(c.x,c.y,9,0,Math.PI*2); ctx.moveTo(c.x-16,c.y); ctx.lineTo(c.x+16,c.y); ctx.moveTo(c.x,c.y-16); ctx.lineTo(c.x,c.y+16); ctx.stroke(); label('střed otáčení',c.x+12,c.y-8,css('--warn')); } }
+  // HUD
+  const hud=$('#hud'); hud.innerHTML=''; const chip=(t,c)=>{ const e=document.createElement('span'); e.className='chip'+(c?' '+c:''); e.textContent=t; hud.appendChild(e); };
+  chip(`zoom ${fmt(S.view.s*100,0)} %`); if(R&&R.k) chip(`${fmt(R.k,3)} mm/px`); if(S.demo) chip('UKÁZKOVÁ DATA','demo');
+  const hints={scale:S.scale.p1&&!S.scale.p2?'Klepněte na druhý konec úsečky měřítka':'Klepněte na začátek úsečky známé délky (hrana cihly, pravítko)',axis:S.axis.p1&&!S.axis.p2?'Klepněte na druhý bod podél ložné spáry':'Klepněte na bod na ložné spáře (směr x)',pair:S.pending?'Klepněte na odpovídající bod B na druhé straně trhliny':'Klepněte na bod A na okraji trhliny (levá / spodní část)',crack:S.path.length?'Přidejte další body podél trhliny, pak „Najít stejnolehlé body“':'Klepněte na začátek trhliny, pak na konec (příp. mezilehlé body)',pan:'Tažením posouvejte, dvěma prsty přibližte; klepnutím vyberte bod'};
+  $('#hint').textContent=hints[S.mode];
+}
+
+function renderNudge(){ const n=$('#nudge'); const p=selPt(); n.hidden=!p; if(!p) return; let l='Vybraný bod'; for(const q of allPoints()){ if(q.pt===p) l=q.label; } $('#nudgeLbl').textContent=`${l} · x ${fmt(p.x,1)} · y ${fmt(p.y,1)} px`; }
+
+function renderPanel(){
+  const r=R;
+  $('#scaleStatus').innerHTML = r.hasScale ? `Měřítko: <b>${fmt(r.k,4)} mm/px</b> (${fmt(hyp(S.scale.p1,S.scale.p2),1)} px = ${fmt(S.scale.len,0)} mm)` : 'Měřítko <b>nezadáno</b> – posuvy v px; poměr m<sub>x</sub>/m<sub>y</sub> je i tak platný.';
+  $('#axisStatus').innerHTML = axisText(r,true);
+  $('#jointStatus').textContent = S.joints ? `spáry: ${fmt(S.joints.alpha,2)}°, ostrost ${fmt(S.joints.sharp,1)}×${S.joints.conf<0.3?' – nezřetelné':''}` : '';
+  const tb=$('#pairs tbody'); tb.innerHTML='';
+  r.rows.forEach(row=>{ const tr=document.createElement('tr'); if(S.sel&&S.sel.type==='pair'&&S.sel.idx===row.i) tr.className='sel';
+    const q=S.pairs[row.i].q; tr.innerHTML=`<td>${row.i+1}</td><td>${fmt(row.mx,2)}</td><td>${fmt(row.my,2)}</td><td>${fmt(row.w,2)}</td><td>${row.ratio===Infinity?'∞':fmt(row.ratio,1)}</td><td>${q!=null?fmt(q*100,0)+' %':'ručně'}</td><td class="del"><button type="button" aria-label="Smazat dvojici">×</button></td>`;
+    tr.onclick=e=>{ if(e.target.tagName==='BUTTON'){ S.pairs.splice(row.i,1); S.sel=null; S.demo=false; update(); return; } S.sel={type:'pair',idx:row.i,which:'a'}; const p=S.pairs[row.i].a; const ns=Math.max(S.view.s,5); S.view.s=ns; S.view.ox=CW/2-p.x*ns; S.view.oy=CH/2-p.y*ns; update(); };
+    tb.appendChild(tr); });
+  if(r.n){ const tr=document.createElement('tr'); tr.style.cursor='default'; tr.innerHTML=`<td><b>Σ|m|</b></td><td><b>${fmt(r.rows.reduce((s,x)=>s+Math.abs(x.mx),0),2)}</b></td><td><b>${fmt(r.rows.reduce((s,x)=>s+Math.abs(x.my),0),2)}</b></td><td>ø ${fmt(r.wMean,2)}</td><td><b>${r.R===Infinity?'∞':fmt(r.R,1)}</b></td><td></td><td></td>`; tr.onclick=null; tb.appendChild(tr); }
+  $('#pairs thead').innerHTML=`<tr><th>#</th><th>m<sub>x</sub> [${r.unit}]</th><th>m<sub>y</sub> [${r.unit}]</th><th>šířka [${r.unit}]</th><th>|m<sub>x</sub>|/|m<sub>y</sub>|</th><th>shoda</th><th></th></tr>`;
+
+  // verdikt
+  const V=$('#verdict'); V.dataset.level=r.level;
+  const u=r.unit; const txt={
+    few:{k:'Zatím nelze vyhodnotit',h:'Zadejte alespoň 2 dvojice stejnolehlých bodů',p:`Rozmístěte dvojice po celé délce trhliny (doporučeno 3 a více). Kritérium m<sub>x</sub> ≥ m<sub>y</sub> musí platit přibližně po celé délce, ne jen v místě největšího rozevření.`,l:[]},
+    H:{k:'Převažuje vodorovná složka posuvu',h:'Vhodné pro vodorovné sepnutí (dodatečné předpětí)',p:`Části zdiva se od sebe převážně vodorovně odsouvají, kritérium m<sub>x</sub> ≥ m<sub>y</sub> je splněno u ${r.share} z ${r.n} dvojic. Svislou složku lze při návrhu horizontálního předpětí zanedbat. ${r.R>=8?'Poměr 8 a více odpovídá typickému rozestupování budovy.':'Poměr je nižší než typických 8–10 – ověřte dvojice a doplňte měření po celé délce trhliny.'}`,l:['Kinematický rozbor neukazuje významné otáčení částí.','Příčinu tahových sil (vazné trámy, strop, teplotní roztažnost) odstraňte nebo ji sepnutím převezměte.','Před návrhem potvrďte, zda je trhlina aktivní (sledování v čase).']},
+    HR:{k:'Vodorovná složka převažuje, ale…',h:'Kinematika ukazuje otáčení částí – pravděpodobný dílčí pokles základů',p:`Horizontální vektory sice převládají (poměr ${r.R===Infinity?'∞':fmt(r.R,1)}), ${r.signChange?'ale znaménko m<sub>x</sub> se po délce trhliny mění':r.rotFlag?'ale posuvy dvojic odpovídají rotaci kolem středu otáčení':'ale kritérium m<sub>x</sub> ≥ m<sub>y</sub> neplatí po celé délce trhliny'}. Jde o případ z obr. 4.2: samotné vodorovné předepnutí bez zvýšení svislé tuhosti (bez zamezení dalšího poklesu základů) by bylo mylné.`,l:['Doplňte kinematický rozbor celé budovy (nivelace, trhliny na dalších stěnách).','Řešit nejprve založení (podchycení, piloty, injektáž podzákladí), teprve potom případné sepnutí.','Zvažte geotechnický průzkum příčiny poklesu (voda, smršťování zemin, přetížení).']},
+    U:{k:'Složky posuvu jsou srovnatelné',h:'Nejednoznačný mechanismus – kombinovaný problém',p:`Poměr Σ|m<sub>x</sub>|/Σ|m<sub>y</sub>| = ${fmt(r.R,2)} leží mezi 0,8 a 1,25. Vodorovné sepnutí pravděpodobně nebude dostatečné samo o sobě; svislou složku nelze zanedbat.`,l:['Doplňte dvojice po celé délce trhliny a zpřesněte body (šipkami po 1 px).','Zvažte kombinaci: zajištění základů + sepnutí.','Rozhodnutí podložte dlouhodobým sledováním (roční cyklus).']},
+    V:{k:'Převažuje svislá složka posuvu',h:'Pokles podzákladí – nutno řešit založení',p:`Část ${r.myMean<0?'B poklesla vůči části A':'A poklesla vůči části B'} o ø ${fmt(Math.abs(r.myMean),1)} ${u}, vodorovná složka je podružná (poměr ${fmt(r.R,2)}). Vodorovné sepnutí samo nestačí a nemělo by být navrženo jako rozhodující krok sanace.`,l:['Příčiny: nestejnoměrné sedání, změny vlhkosti a objemu zemin, kolísání hladiny podzemní vody, přetížení.','Sanace základů: podchycení, mikropiloty / piloty, injektáž; teprve pak oprava a případné sepnutí zdiva.','Ověřte pokles i jinde na objektu (nivelace, sousední trhliny).']}
+  }[r.code];
+  V.innerHTML=`<div class="kicker">${txt.k}</div><h3>${txt.h}</h3><p>${txt.p}</p>${txt.l.length?'<ul>'+txt.l.map(x=>`<li>${x}</li>`).join('')+'</ul>':''}`;
+  const K=$('#kpis'); if(!r.n){ K.innerHTML=''; $('#kin').innerHTML=''; return; }
+  const kcls=r.level==='neutral'?'':r.level;
+  K.innerHTML=`<div class="kpi ${kcls}"><div class="l">Σ|m<sub>x</sub>| / Σ|m<sub>y</sub>|</div><div class="v">${r.R===Infinity?'∞':fmt(r.R,1)}</div></div>
+  <div class="kpi"><div class="l">m<sub>x</sub> ≥ m<sub>y</sub></div><div class="v">${r.share}<span class="u">/ ${r.n} dvojic</span></div></div>
+  <div class="kpi"><div class="l">šířka ø / max</div><div class="v">${fmt(r.wMean,1)}<span class="u">/ ${fmt(r.wMax,1)} ${u}</span></div></div>
+  <div class="kpi"><div class="l">ø m<sub>x</sub> · ø m<sub>y</sub></div><div class="v">${fmt(r.mxMean,1)}<span class="u">· ${fmt(r.myMean,1)} ${u}</span></div></div>`;
+  const kin=r.kin; if(!kin){ $('#kin').innerHTML=''; return; }
+  const mrad=kin.theta*1000; let c='';
+  if(kin.center){ const C=kin.center; const dxc=C.X-r.rows.reduce((s,x)=>s+x.X,0)/r.n, dyc=C.Y-r.rows.reduce((s,x)=>s+x.Y,0)/r.n; c=` Střed otáčení přibližně ${fmt(Math.abs(dxc),0)} ${u} ${dxc<0?'vlevo':'vpravo'} a ${fmt(Math.abs(dyc),0)} ${u} ${dyc<0?'pod':'nad'} těžištěm měřených bodů.`; }
+  $('#kin').innerHTML=`<b>Kinematický rozbor</b> (fit tuhého tělesa, ${r.n} dvojic): translace ${fmt(kin.tx,1)} / ${fmt(kin.ty,1)} ${u}, rotace ${fmt(mrad,2)} mrad, podíl rotace na rozpětí bodů ρ = ${kin.rho===Infinity?'∞':fmt(kin.rho,2)} ${r.rotFlag?'<span style="color:var(--warn)">→ významné otáčení</span>':'→ převážně translace'}${r.signChange?', <span style="color:var(--warn)">znaménko m<sub>x</sub> se po délce mění</span>':''}. Reziduum fitu ${fmt(kin.rms,2)} ${u}.${c}${r.n<3?' <span class="muted">Pro spolehlivou kinematiku doplňte na 3 a více dvojic.</span>':''}`;
+}
+
+/* ---------- protokol ---------- */
+function renderProto(){ const r=R; const d=new Date(); const L=[];
+  L.push(`ANALÝZA TRHLINY VE ZDIVU – vektor posuvu stejnolehlých bodů`); L.push(`Trhlina: ${S.name||'(neoznačeno)'}    Datum: ${d.toLocaleDateString('cs-CZ')} ${d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`);
+  L.push(`Měřítko: ${r.hasScale?fmt(r.k,4)+' mm/px (úsečka '+fmt(S.scale.len,0)+' mm)':'nezadáno – hodnoty v px'}`); L.push('Osa x: '+axisText(r,false)); L.push('');
+  L.push(`Dvojice   mx [${r.unit}]   my [${r.unit}]   šířka [${r.unit}]   |mx|/|my|`);
+  r.rows.forEach(x=>L.push(`${String(x.i+1).padStart(4)}     ${fmt(x.mx,2).padStart(8)}   ${fmt(x.my,2).padStart(8)}   ${fmt(x.w,2).padStart(10)}   ${(x.ratio===Infinity?'∞':fmt(x.ratio,1)).padStart(8)}`));
+  if(r.n){ L.push(''); L.push(`Σ|mx| / Σ|my| = ${r.R===Infinity?'∞':fmt(r.R,2)};  mx ≥ my splněno u ${r.share} z ${r.n} dvojic;  šířka ø ${fmt(r.wMean,2)} / max ${fmt(r.wMax,2)} ${r.unit}`);
+    if(r.kin) L.push(`Kinematika (tuhé těleso): translace ${fmt(r.kin.tx,2)} / ${fmt(r.kin.ty,2)} ${r.unit}, rotace ${fmt(r.kin.theta*1000,3)} mrad, ρ = ${r.kin.rho===Infinity?'∞':fmt(r.kin.rho,2)}${r.rotFlag?' – významné otáčení částí':' – převážně translace'}${r.signChange?', změna znaménka mx po délce':''}`);
+    L.push(''); L.push('ZÁVĚR: '+$('#verdict h3').textContent); L.push($('#verdict p').textContent.replace(/\s+/g,' ')); }
+  L.push(''); L.push('Metodika: empirické kritérium mx ≥ my po délce trhliny → převaha vodorovného odsouvání → vhodné vodorovné sepnutí; převaha my → pokles podzákladí → založení. Doplněno kinematickým rozborem (obr. 4.2). Výsledek je podkladem pro rozhodnutí statika, nikoli jeho náhradou.');
+  $('#proto').value=L.join('\n'); }
+const copy=async (t,ok,ta)=>{ try{ await navigator.clipboard.writeText(t); toast(ok); }catch(e){ ta.hidden=false; ta.value=t; ta.focus(); ta.select(); toast('Text označen – zkopírujte ručně'); } };
+$('#copyProto').onclick=()=>copy($('#proto').value,'Protokol zkopírován',$('#proto'));
+
+/* ---------- sledování ---------- */
+function loadHist(){ try{ return JSON.parse(localStorage.getItem(LS_HIST)||'{}'); }catch(e){ return {}; } }
+function storeHist(h){ try{ localStorage.setItem(LS_HIST,JSON.stringify(h)); }catch(e){ toast('Uložení se nezdařilo (plné úložiště?)'); } }
+$('#saveRec').onclick=()=>{ if(!R||!R.n){ toast('Nejsou žádné dvojice'); return; } const name=(S.name||'').trim()||'bez názvu'; S.name=name; $('#crackName').value=name;
+  let thumb=null; try{ const oc=document.createElement('canvas'); oc.width=240; oc.height=160; const c=oc.getContext('2d'); c.fillStyle='#000'; c.fillRect(0,0,240,160); const k=Math.min(240/CW,160/CH); c.drawImage(cv,(240-CW*k)/2,(160-CH*k)/2,CW*k,CH*k); thumb=oc.toDataURL('image/jpeg',0.55); }catch(e){}
+  const h=loadHist(); (h[name]=h[name]||[]).push({t:Date.now(),n:R.n,R:R.R===Infinity?null:R.R,w:R.wMean,wMax:R.wMax,mx:R.mxMean,my:R.myMean,unit:R.unit,code:R.code,demo:S.demo,thumb}); storeHist(h); renderHist(); toast('Měření uloženo'); };
+function renderHist(){ const h=loadHist(); const dl=$('#crackNames'); dl.innerHTML=Object.keys(h).map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+  const name=(S.name||'').trim(); const recs=(h[name]||[]).slice().sort((a,b)=>a.t-b.t); const H=$('#hist'), T=$('#trend'); H.innerHTML=''; T.innerHTML='';
+  if(!name){ T.innerHTML=`<p class="small muted" style="margin:0">Zadejte označení trhliny. Uložená sledování: ${Object.keys(h).length?Object.keys(h).join(', '):'žádná'}.</p>`; return; }
+  if(!recs.length){ T.innerHTML=`<p class="small muted" style="margin:0">Pro „${name}“ zatím není uložené žádné měření.</p>`; return; }
+  const codes={H:'vodorovný',HR:'vodorovný+rotace',U:'nejednoznačný',V:'svislý',few:'–'};
+  recs.forEach((r,i)=>{ const e=document.createElement('div'); e.className='rec'; const dt=new Date(r.t);
+    e.innerHTML=`${r.thumb?`<img src="${r.thumb}" alt="">`:'<span></span>'}<div><div>${dt.toLocaleDateString('cs-CZ')} ${dt.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}${r.demo?' <span class="chip demo">ukázka</span>':''}</div><div class="m">šířka ø ${fmt(r.w,2)} ${r.unit} · poměr ${r.R==null?'∞':fmt(r.R,1)} · ${codes[r.code]||''} · ${r.n} dvojic</div></div><button type="button" class="ghost danger" aria-label="Smazat záznam">×</button>`;
+    e.querySelector('button').onclick=()=>{ const hh=loadHist(); hh[name]=(hh[name]||[]).filter(x=>x.t!==r.t); if(!hh[name].length) delete hh[name]; storeHist(hh); renderHist(); };
+    H.appendChild(e); });
+  // trend
+  if(recs.length>=2){ const first=recs[0], last=recs[recs.length-1]; const dw=last.w-first.w; const days=Math.max(1,Math.round((last.t-first.t)/864e5)); const thr=Math.max(0.3,0.1*first.w);
+    let lvl='good', msg; if(dw>thr) { lvl='crit'; msg=`Trhlina je <b>aktivní</b>: šířka vzrostla o ${fmt(dw,2)} ${last.unit} za ${days} dní (${fmt(dw/days*365,1)} ${last.unit}/rok). Příčina porušování stále působí – před sanací ji odstraňte nebo sanaci dimenzujte na pokračující pohyb.`; }
+    else if(dw<-thr){ lvl='warn'; msg=`Šířka <b>klesla</b> o ${fmt(-dw,2)} ${last.unit}. Pravděpodobně periodický (teplotní, vlhkostní) průběh – sledujte přes celý roční cyklus.`; }
+    else { msg=`<b>Bez zřetelného nárůstu</b> (Δ ${fmt(dw,2)} ${last.unit} za ${days} dní). Příčina pravděpodobně odezněla; pro jistotu sledujte alespoň přes roční cyklus teplot.`; }
+    const W=320,Hh=84,pl=30,pr=8,pt=8,pb=18; const xs=recs.map(r=>r.t), ys=recs.map(r=>r.w); const x0=Math.min(...xs), x1=Math.max(...xs); const y0=Math.min(0,...ys)*0, y1=Math.max(...ys)*1.15||1;
+    const X=t=>pl+(x1>x0?(t-x0)/(x1-x0):0.5)*(W-pl-pr), Y=w=>pt+(1-(w-y0)/(y1-y0))*(Hh-pt-pb);
+    const pts=recs.map(r=>`${X(r.t).toFixed(1)},${Y(r.w).toFixed(1)}`).join(' ');
+    const svg=`<svg class="spark" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Vývoj šířky trhliny"><line x1="${pl}" y1="${Y(0)}" x2="${W-pr}" y2="${Y(0)}" stroke="var(--rule)"/><line x1="${pl}" y1="${pt}" x2="${pl}" y2="${Y(0)}" stroke="var(--rule)"/>
+      <text x="${pl-4}" y="${Y(y1/1.15)+4}" text-anchor="end" font-size="9" font-family="var(--f-mono)" fill="var(--muted)">${fmt(y1/1.15,1)}</text><text x="${pl-4}" y="${Y(0)+3}" text-anchor="end" font-size="9" font-family="var(--f-mono)" fill="var(--muted)">0</text>
+      <polyline points="${pts}" fill="none" stroke="var(--${lvl})" stroke-width="2"/>${recs.map(r=>`<circle cx="${X(r.t)}" cy="${Y(r.w)}" r="3" fill="var(--${lvl})"/>`).join('')}
+      <text x="${pl}" y="${Hh-5}" font-size="9" font-family="var(--f-mono)" fill="var(--muted)">${new Date(x0).toLocaleDateString('cs-CZ')}</text><text x="${W-pr}" y="${Hh-5}" text-anchor="end" font-size="9" font-family="var(--f-mono)" fill="var(--muted)">${new Date(x1).toLocaleDateString('cs-CZ')}</text></svg>`;
+    T.innerHTML=`<div class="verdict" data-level="${lvl}" style="padding:10px 12px"><div class="kicker">Vývoj šířky – ${recs.length} měření</div><p class="small" style="margin:4px 0 6px">${msg}</p>${svg}</div>`;
+  } else T.innerHTML=`<p class="small muted" style="margin:0">Jedno měření. Pro posouzení aktivity trhliny přidejte další v odstupu (týdny až měsíce).</p>`;
+}
+
+/* ---------- záloha ---------- */
+function snapshot(){ return {v:1,name:S.name,scale:S.scale,axis:S.axis,pairs:S.pairs,path:S.path,demo:S.demo,img:S.imgData,hist:loadHist()}; }
+$('#expBtn').onclick=()=>copy(JSON.stringify(snapshot()),'Záloha zkopírována do schránky',$('#impTxt'));
+$('#impBtn').onclick=()=>{ $('#impTxt').hidden=false; $('#impRow').hidden=false; $('#impTxt').focus(); };
+$('#impGo').onclick=()=>{ try{ const o=JSON.parse($('#impTxt').value); if(o.hist){ const h=loadHist(); for(const k in o.hist){ h[k]=(h[k]||[]).concat(o.hist[k].filter(r=>!(h[k]||[]).some(x=>x.t===r.t))); } storeHist(h); }
+  if(o.pairs){ S.name=o.name||''; $('#crackName').value=S.name; S.scale=o.scale||S.scale; S.axis=o.axis||{p1:null,p2:null}; S.pairs=o.pairs; S.path=o.path||[]; S.auto=null; S.demo=!!o.demo; $('#scaleLen').value=S.scale.len; if(o.img) setImage(o.img,false); }
+  $('#impTxt').hidden=true; $('#impRow').hidden=true; $('#impTxt').value=''; update(); toast('Záloha načtena'); }catch(e){ toast('Neplatný JSON'); } };
+
+/* ---------- uložení rozpracovaného stavu ---------- */
+let saveT; function saveState(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ if(S.demo||!S.imgData){ localStorage.removeItem(LS_STATE); return; } localStorage.setItem(LS_STATE,JSON.stringify({name:S.name,scale:S.scale,axis:S.axis,axisLevel:S.axisLevel||null,axisSrc:S.axisSrc||null,joints:S.joints||null,pairs:S.pairs,path:S.path,img:S.imgData})); }catch(e){} },400); }
+function restoreState(){ try{ const o=JSON.parse(localStorage.getItem(LS_STATE)||'null'); if(!o||!o.img) return false; S.name=o.name||''; $('#crackName').value=S.name; S.scale=o.scale; S.axis=o.axis; S.pairs=o.pairs||[]; S.path=o.path||[]; S.axisLevel=o.axisLevel||null; S.axisSrc=o.axisSrc||null; S.joints=o.joints||null; $('#scaleLen').value=S.scale.len; setImage(o.img,false); return true; }catch(e){ return false; } }
+
+/* ---------- ukázková data (syntetická zeď s trhlinou) ---------- */
+function makeDemo(){ const PX=1.2, W=1200, H=800, bl=290*PX, bh=65*PX, j=12*PX; const A=document.createElement('canvas'); A.width=W; A.height=H; const c=A.getContext('2d');
+  c.fillStyle='#b9b0a1'; c.fillRect(0,0,W,H); let seed=7; const rnd=()=>{ seed=(seed*16807)%2147483647; return seed/2147483647; };
+  const course=bh+j; const rows=Math.ceil(H/course)+1; const bricks=[];
+  for(let r=0;r<rows;r++){ const y=r*course; const off=(r%2)?-(bl+j)/2:0; for(let x=off;x<W;x+=bl+j){ const t=0.85+rnd()*0.3; c.fillStyle=`rgb(${Math.round(170*t)},${Math.round(84*t)},${Math.round(62*t)})`; c.fillRect(x,y,bl,bh); c.fillStyle='rgba(0,0,0,.08)'; for(let k=0;k<6;k++) c.fillRect(x+rnd()*bl,y+rnd()*bh,2+rnd()*6,1+rnd()*3); bricks.push({x,y,r}); } }
+  // trhlina – cik-cak po spárách; levý okraj
+  const path=[]; let x=560; path.push({x,y:-5});
+  for(let r=0;r<rows;r++){ const y=r*course; const off=(r%2)?-(bl+j)/2:0; // nejbližší styčná spára k x
+    const kx=Math.round((x-off)/(bl+j))*(bl+j)+off-j/2+ (r%2?0:0); const target=kx; path.push({x:target,y:y-j/2}); path.push({x:target,y:y+bh+j/2}); const dir=(r%3===0)?1:(r%3===1?-1:0); x=target+dir*(bl+j)*0.5; }
+  path.push({x:path[path.length-1].x,y:H+5});
+  const dx=7*PX, dy=-1*PX; const F=document.createElement('canvas'); F.width=W; F.height=H; const f=F.getContext('2d'); f.fillStyle='#2a2320'; f.fillRect(0,0,W,H);
+  const clip=(ctx2,shift,side)=>{ ctx2.save(); ctx2.beginPath(); if(side<0){ ctx2.moveTo(-10,-10); } else { ctx2.moveTo(W+10,-10); } path.forEach(p=>ctx2.lineTo(p.x+(side>0?shift:0),p.y+(side>0?dy:0))); ctx2.lineTo(side<0?-10:W+10,H+10); ctx2.closePath(); ctx2.clip(); ctx2.drawImage(A,side>0?shift:0,side>0?dy:0); ctx2.restore(); };
+  clip(f,0,-1); clip(f,dx,1);
+  // body
+  const corners=path.filter((p,i)=>i>0&&i<path.length-1&&p.y>40&&p.y<H-40); const pick=[2,6,10,14,18].filter(i=>corners[i]).map(i=>corners[i]);
+  const pairs=pick.map(p=>{ const nx=(rnd()-0.5)*0.8, ny=(rnd()-0.5)*0.8; return {a:{x:p.x,y:p.y},b:{x:p.x+dx+nx,y:p.y+dy+ny}}; });
+  const b=bricks.find(q=>q.r===3&&q.x>100&&q.x+bl<545)||bricks.find(q=>q.r===2&&q.x>=0&&q.x+bl<545)||bricks[0]; const scale={p1:{x:b.x,y:b.y+2},p2:{x:b.x+bl,y:b.y+2},len:290}; const axis={p1:{x:80,y:5*course-j/2},p2:{x:420,y:5*course-j/2}};
+  return {img:F.toDataURL('image/jpeg',0.85),pairs,scale,axis}; }
+
+/* ---------- automatické hledání stejnolehlých bodů ---------- */
+function grayImg(){ if(S._gray) return S._gray; const oc=document.createElement('canvas'); oc.width=S.iw; oc.height=S.ih; const c=oc.getContext('2d'); c.drawImage(S.img,0,0); const d=c.getImageData(0,0,S.iw,S.ih).data; const g=new Float32Array(S.iw*S.ih); for(let i=0,j=0;i<g.length;i++,j+=4) g[i]=0.299*d[j]+0.587*d[j+1]+0.114*d[j+2]; return S._gray={w:S.iw,h:S.ih,g}; }
+function sampleG(G,x,y){ const w=G.w,h=G.h; x=Math.min(Math.max(x,0),w-1.001); y=Math.min(Math.max(y,0),h-1.001); const x0=x|0,y0=y|0,fx=x-x0,fy=y-y0; const g=G.g,i=y0*w+x0; return (g[i]*(1-fx)+g[i+1]*fx)*(1-fy)+(g[i+w]*(1-fx)+g[i+w+1]*fx)*fy; }
+function percentile(arr,p){ const a=Float32Array.from(arr).sort(); return a[Math.min(a.length-1,Math.floor(p*a.length))]; }
+// zmenšený obraz (minimum v bloku – tenká tmavá linie přežije)
+function smallImg(){ if(S._small) return S._small; const G=grayImg(); const f=Math.max(1,Math.ceil(Math.max(G.w,G.h)/720)); const w=Math.floor(G.w/f),h=Math.floor(G.h/f); const s=new Float32Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let m=255; for(let yy=0;yy<f;yy++){ const row=(y*f+yy)*G.w+x*f; for(let xx=0;xx<f;xx++){ const v=G.g[row+xx]; if(v<m) m=v; } } s[y*w+x]=m; }
+  // black-hat: tenké tmavé linie (closing − obraz), oddělí trhlinu od plošných tmavých skvrn
+  const r=3; const mx=new Float32Array(w*h), tmp=new Float32Array(w*h); const fil=(src,dst,op)=>{ for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let v=src[y*w+x]; for(let k=-r;k<=r;k++){ const xx=x+k; if(xx<0||xx>=w) continue; v=op(v,src[y*w+xx]); } tmp[y*w+x]=v; } for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let v=tmp[y*w+x]; for(let k=-r;k<=r;k++){ const yy=y+k; if(yy<0||yy>=h) continue; v=op(v,tmp[yy*w+x]); } dst[y*w+x]=v; } };
+  fil(s,mx,Math.max); const cl=new Float32Array(w*h); fil(mx,cl,Math.min); const bh=new Float32Array(w*h); for(let i=0;i<bh.length;i++) bh[i]=cl[i]-s[i];
+  return S._small={w,h,f,s,bh}; }
+// Dijkstra po tmavých pixelech mezi body
+function tracePath(pts){ const I=smallImg(); const {w,h,f,s,bh}=I; const lo=percentile(s,0.02), hi=percentile(s,0.6), ref=Math.max(8,percentile(bh,0.995)); const cost=new Float32Array(w*h); for(let i=0;i<s.length;i++){ const t=Math.min(1,Math.max(0,(s[i]-lo)/Math.max(1,hi-lo))); const b=1-Math.min(1,bh[i]/ref); cost[i]=0.02+0.6*b*b+0.4*t*t; }
+  const out=[]; const N8=[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.414],[1,-1,1.414],[-1,1,1.414],[-1,-1,1.414]];
+  for(let k=0;k<pts.length-1;k++){ const a=pts[k],b=pts[k+1]; const si=Math.min(h-1,Math.max(0,Math.round(a.y/f)))*w+Math.min(w-1,Math.max(0,Math.round(a.x/f))); const ti=Math.min(h-1,Math.max(0,Math.round(b.y/f)))*w+Math.min(w-1,Math.max(0,Math.round(b.x/f)));
+    const dist=new Float32Array(w*h).fill(Infinity), prev=new Int32Array(w*h).fill(-1), done=new Uint8Array(w*h); const hk=[],hi_=[]; const push=(d,i)=>{ hk.push(d); hi_.push(i); let c=hk.length-1; while(c>0){ const p=(c-1)>>1; if(hk[p]<=hk[c]) break; [hk[p],hk[c]]=[hk[c],hk[p]]; [hi_[p],hi_[c]]=[hi_[c],hi_[p]]; c=p; } };
+    const pop=()=>{ const d=hk[0],i=hi_[0]; const ld=hk.pop(),li=hi_.pop(); if(hk.length){ hk[0]=ld; hi_[0]=li; let c=0; for(;;){ const l=2*c+1,r=l+1; let m=c; if(l<hk.length&&hk[l]<hk[m]) m=l; if(r<hk.length&&hk[r]<hk[m]) m=r; if(m===c) break; [hk[m],hk[c]]=[hk[c],hk[m]]; [hi_[m],hi_[c]]=[hi_[c],hi_[m]]; c=m; } } return [d,i]; };
+    // penalizace odchylky od tětivy úseku pro světlé pixely (uzavřené úseky trhliny se trasují rovně, netoulají se texturou)
+    const ax=si%w,ay=(si-ax)/w,bx=ti%w,by=(ti-bx)/w; const legL=Math.hypot(bx-ax,by-ay)||1; const kx=(bx-ax)/legL,ky=(by-ay)/legL; const kpen=1/Math.max(8,0.1*legL);
+    const cst=i=>{ const x=i%w,y=(i-x)/w; const dch=Math.abs((x-ax)*ky-(y-ay)*kx); return cost[i]*(1+kpen*dch); };
+    dist[si]=0; push(0,si); let found=false;
+    while(hk.length){ const [d,i]=pop(); if(done[i]) continue; done[i]=1; if(i===ti){ found=true; break; } const x=i%w,y=(i-x)/w; const ci=cst(i); for(const [dx,dy,m] of N8){ const nx=x+dx,ny=y+dy; if(nx<0||ny<0||nx>=w||ny>=h) continue; const j=ny*w+nx; if(done[j]) continue; const nd=d+m*(ci+cst(j))*0.5; if(nd<dist[j]){ dist[j]=nd; prev[j]=i; push(nd,j); } } }
+    if(!found) return null; const seg=[]; for(let i=ti;i!==-1;i=prev[i]) seg.push({x:(i%w)*f+f/2,y:Math.floor(i/w)*f+f/2}); seg.reverse(); if(k>0) seg.shift(); out.push(...seg); }
+  return out; }
+// automatické odhadnutí začátku a konce (nejdelší tenká tmavá komponenta)
+function autoEndpoints(){ const I=smallImg(); const {w,h,f,bh}=I; const s=new Float32Array(bh.length); const ref=Math.max(8,percentile(bh,0.995)); for(let i=0;i<s.length;i++) s[i]=255*(1-Math.min(1,bh[i]/ref)); // „tmavost“ = síla tenké linie; Otsu
+  const hist=new Float64Array(256); for(let i=0;i<s.length;i++) hist[Math.round(s[i])]++; let sum=0; for(let i=0;i<256;i++) sum+=i*hist[i]; let sb=0,wb=0,max=0,thr=0; for(let t=0;t<256;t++){ wb+=hist[t]; if(!wb) continue; const wf=s.length-wb; if(!wf) break; sb+=t*hist[t]; const mb=sb/wb, mf=(sum-sb)/wf; const v=wb*wf*(mb-mf)*(mb-mf); if(v>max){ max=v; thr=t; } }
+  thr=Math.min(Math.max(thr,255*0.55),255*0.7); const mk=new Uint8Array(w*h); for(let i=0;i<s.length;i++) mk[i]=s[i]<=thr?1:0; const dl=new Uint8Array(w*h); for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let v=0; for(let yy=Math.max(0,y-3);yy<=Math.min(h-1,y+3)&&!v;yy++) for(let xx=Math.max(0,x-3);xx<=Math.min(w-1,x+3);xx++) if(mk[yy*w+xx]){ v=1; break; } dl[y*w+x]=v; } const lab=new Int32Array(w*h).fill(-1); const comps=[]; const stack=[];
+  for(let i=0;i<s.length;i++){ if(!dl[i]||lab[i]>=0) continue; const id=i; let n=0,minx=w,maxx=0,miny=h,maxy=0,sx=0,sy=0,sxx=0,sxy=0,syy=0; const px=[]; stack.push(i); lab[i]=id;
+    while(stack.length){ const j=stack.pop(); const x=j%w,y=(j-x)/w; n++; px.push(j); if(x<minx)minx=x; if(x>maxx)maxx=x; if(y<miny)miny=y; if(y>maxy)maxy=y; sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; syy+=y*y;
+      for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const nx=x+dx,ny=y+dy; if(nx<0||ny<0||nx>=w||ny>=h) continue; const k=ny*w+nx; if(lab[k]<0&&dl[k]){ lab[k]=id; stack.push(k); } } }
+    const bw=maxx-minx+1,bh=maxy-miny+1, diag=Math.hypot(bw,bh), fill=n/(bw*bh); const mx=sx/n,my=sy/n; const cxx=sxx/n-mx*mx,cxy=sxy/n-mx*my,cyy=syy/n-my*my; const tr=cxx+cyy, det=cxx*cyy-cxy*cxy; const l1=tr/2+Math.sqrt(Math.max(0,tr*tr/4-det)), l2=tr/2-Math.sqrt(Math.max(0,tr*tr/4-det)); const elong=l1>0?Math.sqrt(Math.max(0,l2)/l1):1; if(diag<0.04*Math.max(w,h)||(fill>0.6&&elong>0.35)||elong>0.7) continue; const ang=0.5*Math.atan2(2*cxy,cxx-cyy); // konce kusu = geodeticky nejvzdálenější dvojice uvnitř komponenty (funguje i pro klikaté kusy)
+    const bfs=(start)=>{ const dist=new Map([[start,0]]); const q=[start]; let far=start,fd=0; for(let qi=0;qi<q.length;qi++){ const j=q[qi]; const d=dist.get(j); const x=j%w,y=(j-x)/w; if(d>fd){ fd=d; far=j; } for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const nx=x+dx,ny=y+dy; if(nx<0||ny<0||nx>=w||ny>=h) continue; const k=ny*w+nx; if(lab[k]===id&&!dist.has(k)){ dist.set(k,d+1); q.push(k); } } } return far; };
+    const imin=bfs(bfs(px[0])), imax=bfs(imin);
+    comps.push({score:diag*(1-Math.min(fill,elong)),diag,n,sx,sy,sxx,sxy,syy,a:{x:(imin%w)*f+f/2,y:Math.floor(imin/w)*f+f/2},b:{x:(imax%w)*f+f/2,y:Math.floor(imax/w)*f+f/2}}); }
+  if(!comps.length) return null; comps.sort((p,q)=>q.score-p.score); if(comps[0].diag<0.12*Math.max(w,h)) return null;
+  // kusy seřadit podél hlavního směru trhliny (PCA všech kusů), dovnitř kusu orientovat konce stejně
+  const keep=comps.filter(c=>c.score>=0.15*comps[0].score); let N=0,Sx=0,Sy=0,Sxx=0,Sxy=0,Syy=0; for(const c of keep){ N+=c.n; Sx+=c.sx; Sy+=c.sy; Sxx+=c.sxx; Sxy+=c.sxy; Syy+=c.syy; }
+  const gx=Sx/N,gy=Sy/N; const gxx=Sxx/N-gx*gx,gxy=Sxy/N-gx*gy,gyy=Syy/N-gy*gy; const ga=0.5*Math.atan2(2*gxy,gxx-gyy); const ux=Math.cos(ga),uy=Math.sin(ga);
+  const pr=p=>p.x*ux+p.y*uy; for(const c of keep){ if(pr(c.a)>pr(c.b)){ const t=c.a; c.a=c.b; c.b=t; } c.pc=(pr(c.a)+pr(c.b))/2; } keep.sort((p,q)=>p.pc-q.pc);
+  const pts=[]; for(const c of keep){ if(pts.length&&hyp(pts[pts.length-1],c.a)>0.45*Math.max(w,h)*f) continue; if(!pts.length||hyp(pts[pts.length-1],c.a)>4*f) pts.push(c.a); pts.push(c.b); }
+  return pts.length>=2?pts:null; }
+function resamplePath(pts,step){ // vyhlazení + převzorkování po délce
+  const sm=pts.map((p,i)=>{ let x=0,y=0,n=0; for(let k=-5;k<=5;k++){ const q=pts[Math.min(pts.length-1,Math.max(0,i+k))]; x+=q.x; y+=q.y; n++; } return {x:x/n,y:y/n}; });
+  const out=[sm[0]]; let acc=0; for(let i=1;i<sm.length;i++){ let a=sm[i-1],b=sm[i]; let L=hyp(a,b); while(acc+L>=step){ const t=(step-acc)/L; const p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t}; out.push(p); a=p; L=hyp(a,b); acc=0; } acc+=L; }
+  return out; }
+function autoFind(){ if(!S.img){ toast('Nejprve načtěte foto'); return; } const st=$('#autoStatus'); st.textContent='Hledám…'; setTimeout(()=>{ try{ autoFindRun(); }catch(e){ st.textContent='Hledání selhalo: '+e.message; } },30); }
+function autoFindRun(){ const st=$('#autoStatus'); const W=+$('#autoW').value; const step=2;
+  let seeds=S.path.length>=2?S.path.slice():autoEndpoints(); if(!seeds){ st.textContent='Trhlinu se nepodařilo najít – označte její začátek a konec v režimu „Trasa trhliny“.'; return; }
+  if(S.path.length<2){ S.path=seeds.slice(); }
+  const raw=tracePath(seeds); if(!raw||raw.length<10){ st.textContent='Mezi zadanými body se nepodařilo trasovat tmavou linii.'; return; }
+  // orientace: dolů nebo doprava → část A vlevo / dole
+  let P=resamplePath(raw,step);
+  // odstranění smyček (trasa se vrací po vlastních stopách)
+  for(let pass=0;pass<4;pass++){ const seen=new Map(); let cut=false; for(let i=0;i<P.length;i++){ const key=Math.round(P[i].x/4)+','+Math.round(P[i].y/4); const j=seen.get(key); if(j!==undefined&&i-j>15){ P=P.slice(0,j+1).concat(P.slice(i+1)); cut=true; break; } seen.set(key,i); } if(!cut) break; }
+  const d={x:P[P.length-1].x-P[0].x,y:P[P.length-1].y-P[0].y}; if((Math.abs(d.y)>=Math.abs(d.x)&&d.y<0)||(Math.abs(d.y)<Math.abs(d.x)&&d.x<0)) P.reverse();
+  const G=grayImg(); const n=P.length; const T=[],Nn=[]; for(let i=0;i<n;i++){ const a=P[Math.max(0,i-2)],b=P[Math.min(n-1,i+2)]; const L=hyp(a,b)||1; const t={x:(b.x-a.x)/L,y:(b.y-a.y)/L}; T.push(t); Nn.push({x:t.y,y:-t.x}); }
+  // okraje: profil kolmo na trasu
+  const Lp=new Array(n).fill(null), Rp=new Array(n).fill(null); const eL=new Float32Array(n).fill(NaN), eR=new Float32Array(n).fill(NaN); const m=2*W+1;
+  for(let i=0;i<n;i++){ const p=P[i],N=Nn[i]; const v=new Float32Array(m); for(let k=0;k<m;k++){ const e=k-W; v[k]=sampleG(G,p.x+e*N.x,p.y+e*N.y); } for(let k=1;k<m-1;k++) v[k]=(v[k-1]+v[k]+v[k+1])/3;
+    let kmin=W; for(let k=W-Math.floor(W/3);k<=W+Math.floor(W/3);k++) if(v[k]<v[kmin]) kmin=k; const cmin=v[kmin], bg=percentile(v,0.75); if(bg-cmin<18) continue; const thr=cmin+0.5*(bg-cmin);
+    let a=kmin; while(a>0&&v[a]<=thr) a--; if(a===0) continue; let b=kmin; while(b<m-1&&v[b]<=thr) b++; if(b===m-1) continue;
+    // subpixelová poloha hrany = maximum gradientu (bez systematického zúžení vlivem prahu)
+    const gmax=(k0,k1,sgn)=>{ let bk=k0,bv=-Infinity; for(let k=Math.max(0,k0);k<=Math.min(m-2,k1);k++){ const gv=sgn*(v[k+1]-v[k]); if(gv>bv){ bv=gv; bk=k; } } const g0=bk>0?sgn*(v[bk]-v[bk-1]):bv, g2=bk<m-2?sgn*(v[bk+2]-v[bk+1]):bv; const den=g0-2*bv+g2; const dlt=den<0?0.5*(g0-g2)/den:0; return bk+0.5+Math.max(-0.5,Math.min(0.5,dlt)); };
+    const el=gmax(a-2,a+1,-1)-W, er=gmax(b-2,b+1,1)-W; if(er-el>1.6*W||er-el<0.5) continue;
+    eL[i]=el; eR[i]=er; Lp[i]={x:p.x+el*N.x,y:p.y+el*N.y}; Rp[i]={x:p.x+er*N.x,y:p.y+er*N.y}; }
+  const nValid=eL.filter(x=>!isNaN(x)).length; S.auto={center:P,L:Lp,R:Rp};
+  if(nValid<n*0.3){ st.textContent=`Okraje trhliny nalezeny jen u ${nValid} z ${n} vzorků – zvětšete šířku hledání nebo upravte trasu.`; update(); return; }
+  // okna: posun d, při kterém levý okraj posunutý o d splyne s pravým (chamfer / ICP s translací)
+  const Lpx=n*step; const win=Math.min(400,Math.max(100,Lpx/5)); const wn=Math.round(win/step), hop=Math.max(1,Math.round(wn/2));
+  const widths=[]; for(let i=0;i<n;i++) if(!isNaN(eL[i])) widths.push(eR[i]-eL[i]); const wMed=percentile(widths,0.5), w95=percentile(widths,0.9); const maxD=Math.max(4,Math.ceil(Math.min(80,1.5*w95+1.5))); // |d| ≤ √2·max. rozevření (složky kolmé na úseky trhliny)
+  const found=[]; let windows=0,noMatch=0;
+  for(let s0=0;s0+wn<=n;s0+=hop){ windows++; const s1=s0+wn; const Ls=[],Rs=[]; for(let i=s0;i<s1;i++) if(Lp[i]) Ls.push(Lp[i]); for(let i=Math.max(0,Math.floor(s0-maxD/step));i<Math.min(n,Math.ceil(s1+maxD/step));i++) if(Rp[i]) Rs.push(Rp[i]);
+    if(Ls.length<wn*0.35||Rs.length<wn*0.35){ noMatch++; continue; }
+    // mapa obsazenosti pravého okraje (tolerance tol) → skóre posunu = počet bodů levého okraje, které po posunu padnou na pravý
+    const tol=Math.max(1.5,0.2*wMed); let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity; for(const r of Rs){ if(r.x<x0)x0=r.x; if(r.y<y0)y0=r.y; if(r.x>x1)x1=r.x; if(r.y>y1)y1=r.y; }
+    const ox=Math.floor(x0-tol-1), oy=Math.floor(y0-tol-1), ow=Math.ceil(x1-x0+2*tol+3), oh=Math.ceil(y1-y0+2*tol+3); const occ=new Uint8Array(ow*oh); const rt=Math.ceil(tol);
+    for(const r of Rs){ const cx=r.x-ox, cy=r.y-oy; for(let yy=Math.floor(cy-rt);yy<=Math.ceil(cy+rt);yy++) for(let xx=Math.floor(cx-rt);xx<=Math.ceil(cx+rt);xx++){ if(xx<0||yy<0||xx>=ow||yy>=oh) continue; if(Math.hypot(xx-cx,yy-cy)<=tol) occ[yy*ow+xx]=1; } }
+    const score=(dx,dy)=>{ let c=0; for(const p of Ls){ const xx=Math.round(p.x+dx-ox), yy=Math.round(p.y+dy-oy); if(xx>=0&&yy>=0&&xx<ow&&yy<oh&&occ[yy*ow+xx]) c++; } return c; };
+    let best=-1,bd=null; const grid=[]; for(let dy=-maxD;dy<=maxD;dy++) for(let dx=-maxD;dx<=maxD;dx++){ if(dx*dx+dy*dy>maxD*maxD) continue; const c=score(dx,dy); grid.push({dx,dy,c}); if(c>best){ best=c; bd={dx,dy}; } }
+    if(!bd||best<0.3*Ls.length){ noMatch++; continue; }
+    // degenerace (rovný úsek – posun podél hrany neurčitý): rozptyl téměř optimálních řešení
+    const near=grid.filter(g=>g.c>=best-Math.max(2,0.04*Ls.length)); let span=0; for(const g of near){ span=Math.max(span,Math.hypot(g.dx-bd.dx,g.dy-bd.dy)); }
+    if(span>0.6*maxD){ noMatch++; continue; }
+    if(near.length>1){ near.sort((a,b)=>(a.dx*a.dx+a.dy*a.dy)-(b.dx*b.dx+b.dy*b.dy)); bd={dx:near[0].dx,dy:near[0].dy}; }
+    // zpřesnění: průměr vektorů inlierů (nejbližší bod pravého okraje)
+    let sx=0,sy=0,cnt=0; for(const p of Ls){ const px=p.x+bd.dx,py=p.y+bd.dy; let m=Infinity,mr=null; for(const r of Rs){ const d=(r.x-px)*(r.x-px)+(r.y-py)*(r.y-py); if(d<m){ m=d; mr=r; } } if(Math.sqrt(m)<=tol){ sx+=mr.x-p.x; sy+=mr.y-p.y; cnt++; } }
+    const inl=cnt/Ls.length; if(cnt<4||inl<0.3){ noMatch++; continue; }
+    const d={x:sx/cnt,y:sy/cnt}; let q=inl;
+    // charakteristický lom levého okraje (největší změna směru), jinak střed okna
+    let A=null,ba=0.35; for(let i=s0+3;i<s1-3;i++){ const p0=Lp[i-3],p1=Lp[i],p2=Lp[i+3]; if(!p0||!p1||!p2) continue; const a1=Math.atan2(p1.y-p0.y,p1.x-p0.x),a2=Math.atan2(p2.y-p1.y,p2.x-p1.x); let da=Math.abs(a2-a1); if(da>Math.PI) da=2*Math.PI-da; if(da>ba){ ba=da; A=p1; } }
+    if(!A){ const mid=(s0+s1)>>1; for(let k=0;k<wn;k++){ if(Lp[mid+k]){ A=Lp[mid+k]; break; } if(Lp[mid-k]){ A=Lp[mid-k]; break; } } } if(!A){ noMatch++; continue; }
+    const B={x:A.x+d.x,y:A.y+d.y};
+    if(found.some(f=>hyp(f.a,A)<12)) continue; found.push({a:{x:A.x,y:A.y},b:B,q:Math.max(0,Math.min(1,q))}); }
+  // odlehlé okno: vektor se liší od obou sousedů, které spolu souhlasí (chyba hledání, ne rotace)
+  const vec=f=>({x:f.b.x-f.a.x,y:f.b.y-f.a.y}); const dif=(u,v)=>Math.hypot(u.x-v.x,u.y-v.y); let dropped=0;
+  if(found.length>=3){ const keepF=found.filter((f,i)=>{ const pv=found[i-1],nx=found[i+1]; if(!pv||!nx) return true; const v=vec(f),a=vec(pv),b=vec(nx); const tolv=Math.max(3,0.5*Math.max(Math.hypot(a.x,a.y),Math.hypot(b.x,b.y))); const bad=dif(v,a)>tolv&&dif(v,b)>tolv&&dif(a,b)<=tolv; if(bad) dropped++; return !bad; }); found.length=0; found.push(...keepF); }
+  S.pairs=S.pairs.filter(p=>p.q==null).concat(found); S.pending=null; S.sel=null; S.demo=false; if(S.mode==='crack') setMode('pair');
+  const qs=found.map(f=>f.q); st.innerHTML=found.length?`Nalezeno <b>${found.length}</b> dvojic v ${windows} oknech (${noMatch} bez shody${dropped?', '+dropped+' odlehlé vyřazeny':''}), shoda ${fmt(Math.min(...qs)*100,0)}–${fmt(Math.max(...qs)*100,0)} %. Zkontrolujte body na snímku, špatné smažte, chybějící doplňte ručně.`:`Okraje nalezeny, ale v žádném z ${windows} oken nebyla spolehlivá shoda lomů (trhlina bez výrazných zubů, nebo příliš zakrytá). Doplňte dvojice ručně.`;
+  update(); }
+$('#autoFind').onclick=autoFind;
+
+/* ---------- foto s vodováhou (živý náhled + senzory) ---------- */
+const cam={stream:null,g:null,gm:null,roll:0,pitch:0,have:false,motion:false,raf:0,on:false};
+const camV=$('#camV'), camC=$('#camC');
+function scrAngle(){ const a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0); return ((a%360)+360)%360; }
+function toScreen(dx,dy,dz){ const a=scrAngle(); let sx=dx,sy=dy; if(a===90){ sx=-dy; sy=dx; } else if(a===270){ sx=dy; sy=-dx; } else if(a===180){ sx=-dx; sy=-dy; } return {x:sx,y:sy,z:dz}; }
+function camSetG(v){ const k=0.25; cam.g=cam.g?{x:cam.g.x+(v.x-cam.g.x)*k,y:cam.g.y+(v.y-cam.g.y)*k,z:cam.g.z+(v.z-cam.g.z)*k}:v; const g=cam.g; const h=Math.hypot(g.x,g.y); cam.roll=Math.atan2(g.x,g.y)*180/Math.PI; cam.pitch=Math.atan2(g.z,h)*180/Math.PI; cam.have=h>0.5; }
+function onMotion(e){ const a=e.accelerationIncludingGravity; if(!a||a.x==null) return; cam.motion=true; camSetG(toScreen(a.x,a.y,a.z)); }
+function onOrient(e){ if(cam.motion||e.beta==null) return; const b=e.beta*Math.PI/180,g=e.gamma*Math.PI/180; camSetG(toScreen(-Math.sin(g)*Math.cos(b),Math.sin(b),Math.cos(g)*Math.cos(b))); }
+async function camOpen(){ const ov=$('#camOv'); ov.hidden=false; cam.on=true; cam.g=null; cam.have=false; cam.motion=false;
+  try{ if(window.DeviceMotionEvent&&typeof DeviceMotionEvent.requestPermission==='function') await DeviceMotionEvent.requestPermission().catch(()=>{}); if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function') await DeviceOrientationEvent.requestPermission().catch(()=>{}); }catch(e){}
+  window.addEventListener('devicemotion',onMotion); window.addEventListener('deviceorientation',onOrient);
+  const secure=location.protocol==='https:'||location.hostname==='localhost'; $('#camLive').hidden=!(secure&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+  cam.t0=Date.now(); camLoop(); }
+async function camLive(){ try{ cam.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:2560},height:{ideal:1920}},audio:false}); camV.srcObject=cam.stream; camV.hidden=false; await camV.play(); $('#camLive').hidden=true; $('#camInfo').textContent='Živý náhled – spoušť vyfotí přímo z náhledu.'; }catch(e){ toast('Kameru se nepodařilo spustit – použije se foťák telefonu'); } }
+function camClose(){ cam.on=false; cancelAnimationFrame(cam.raf); window.removeEventListener('devicemotion',onMotion); window.removeEventListener('deviceorientation',onOrient); if(cam.stream){ cam.stream.getTracks().forEach(t=>t.stop()); cam.stream=null; } camV.srcObject=null; camV.hidden=true; $('#camOv').hidden=true; }
+function camLoop(){ if(!cam.on) return; cam.raf=requestAnimationFrame(camLoop); const r=camC.getBoundingClientRect(); const dpr=devicePixelRatio||1; if(camC.width!==Math.round(r.width*dpr)){ camC.width=Math.round(r.width*dpr); camC.height=Math.round(r.height*dpr); } const c=camC.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,r.width,r.height);
+  const cx=r.width/2, cy=r.height/2; const dev=Math.max(Math.abs(cam.roll),Math.abs(cam.pitch)); const col=!cam.have?'#9aa':(dev<=1?'#39d47a':(dev<=3?'#f2b544':'#ff5a4a'));
+  // mřížka + horizont pootočený o rotaci telefonu
+  c.strokeStyle='rgba(255,255,255,.3)'; c.lineWidth=1; c.setLineDash([]); c.beginPath(); c.moveTo(0,cy); c.lineTo(r.width,cy); c.moveTo(cx,0); c.lineTo(cx,r.height); c.stroke();
+  if(cam.have){ const a=-cam.roll*Math.PI/180; const L=r.width; c.strokeStyle=col; c.lineWidth=2.5; c.beginPath(); c.moveTo(cx-Math.cos(a)*L,cy-Math.sin(a)*L); c.lineTo(cx+Math.cos(a)*L,cy+Math.sin(a)*L); c.stroke(); }
+  // libela: vodorovně rotace (x), svisle náklon od svislice (y)
+  const R=Math.min(90,r.width*0.2); c.strokeStyle='rgba(255,255,255,.85)'; c.lineWidth=2; c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.stroke(); c.strokeStyle='rgba(255,255,255,.5)'; c.lineWidth=1; c.beginPath(); c.arc(cx,cy,R/3,0,Math.PI*2); c.stroke();
+  c.fillStyle='rgba(255,255,255,.7)'; c.font='12px '+css('--f-mono'); c.textAlign='center'; c.fillText('← rotace →',cx,cy+R+18); c.save(); c.translate(cx-R-14,cy); c.rotate(-Math.PI/2); c.fillText('← náklon →',0,0); c.restore();
+  if(cam.have){ const k=R/6; const bx=Math.max(-R,Math.min(R,cam.roll*k)), by=Math.max(-R,Math.min(R,-cam.pitch*k)); c.fillStyle=col; c.beginPath(); c.arc(cx+bx,cy+by,Math.max(12,R*0.22),0,Math.PI*2); c.fill(); }
+  const rd=$('#camRead'); rd.textContent=cam.have?`rotace ${cam.roll>=0?'+':''}${cam.roll.toFixed(1)}°   náklon od svislice ${cam.pitch>=0?'+':''}${cam.pitch.toFixed(1)}°   ${dev<=1?'OK':'srovnejte'}`:(Date.now()-cam.t0<2500?'vodováha: čekám na senzory…':'senzory nedostupné – spoušť otevře foťák, vodorovinu pak najdu podle ložných spár'); rd.style.borderColor=col; }
+/* ---------- osa x: ložné spáry z fotky (projekční profil), záložně vodováha ---------- */
+function detectJoints(){ const G=grayImg(); const f=Math.max(1,Math.ceil(Math.max(G.w,G.h)/640)); const w=Math.floor(G.w/f),h=Math.floor(G.h/f); const a=new Float32Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let s=0; for(let yy=0;yy<f;yy++){ const row=(y*f+yy)*G.w+x*f; for(let xx=0;xx<f;xx++) s+=G.g[row+xx]; } a[y*w+x]=s/(f*f); }
+  // 1) hrubý úhel: histogram dvojnásobného směru gradientu (silné hrany), pík kolem vodorovných přímek
+  const NB=720, hist=new Float64Array(NB), gxA=new Float32Array(w*h), gyA=new Float32Array(w*h), m=new Float32Array(w*h);
+  for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){ const i=y*w+x; const gx=(a[i-w+1]+2*a[i+1]+a[i+w+1])-(a[i-w-1]+2*a[i-1]+a[i+w-1]); const gy=(a[i+w-1]+2*a[i+w]+a[i+w+1])-(a[i-w-1]+2*a[i-w]+a[i-w+1]); gxA[i]=gx; gyA[i]=gy; m[i]=Math.hypot(gx,gy); }
+  const thr=percentile(m,0.8)||1; for(let i=0;i<m.length;i++){ if(m[i]<thr) continue; let phi=2*Math.atan2(gyA[i],gxA[i]); phi=((phi%(2*Math.PI))+2*Math.PI)%(2*Math.PI); hist[Math.floor(phi/(2*Math.PI)*NB)%NB]+=m[i]; }
+  const binDeg=360/NB; let bk=-1,bv=-1; for(let d=-80;d<=80;d++){ const k=(360+d+NB)%NB; let sm=0; for(let e=-3;e<=3;e++) sm+=hist[(k+e+NB)%NB]*(4-Math.abs(e)); if(sm>bv){ bv=sm; bk=k; } }
+  let sx=0,sy=0; for(let d=-6;d<=6;d++){ const k=(bk+d+NB)%NB; const ang=(k+0.5)*binDeg*Math.PI/180; sx+=hist[k]*Math.cos(ang); sy+=hist[k]*Math.sin(ang); } let phiH=Math.atan2(sy,sx); if(phiH<0) phiH+=2*Math.PI; const alpha0=(phiH*180/Math.PI-180)/2;
+  // 2) dopřesnění: spáry jsou dlouhé přímky → průmět obrazu podél správného úhlu má nejostřejší profil
+  let mean=0; for(let i=0;i<a.length;i++) mean+=a[i]; mean/=a.length;
+  const prof=(deg)=>{ const t=deg*Math.PI/180, sn=Math.sin(t), cs=Math.cos(t); const off=w*Math.abs(sn)+2; const nb=Math.ceil(h*Math.abs(cs)+w*Math.abs(sn))+6; const Sm=new Float64Array(nb), C=new Float64Array(nb);
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){ const r=-x*sn+y*cs+off; const r0=Math.floor(r), fr=r-r0; const v=a[y*w+x]-mean; Sm[r0]+=v*(1-fr); C[r0]+=1-fr; Sm[r0+1]+=v*fr; C[r0+1]+=fr; }
+    let s2=0,n=0; for(let k=0;k<nb;k++){ if(C[k]<w*0.3) continue; const mv=Sm[k]/C[k]; s2+=mv*mv*C[k]; n+=C[k]; } return n?s2/n:0; };
+  let best=alpha0, bvp=prof(alpha0); for(const [span,step] of [[2.5,0.25],[0.3,0.05],[0.06,0.01]]){ const c0=best; for(let d=-span;d<=span+1e-9;d+=step){ const v=prof(c0+d); if(v>bvp){ bvp=v; best=c0+d; } } }
+  const sharp=bvp/Math.max(prof(best+4),prof(best-4),1e-9); const conf=Math.max(0,Math.min(1,(sharp-1.5)/4));
+  return {alpha:best,conf,sharp}; }
+function setAxisAngle(deg){ const t=deg*Math.PI/180, hx=Math.cos(t), hy=Math.sin(t); const cx=S.iw/2, cy=S.ih/2, L=S.iw*0.3; S.axis={p1:{x:cx-hx*L,y:cy-hy*L},p2:{x:cx+hx*L,y:cy+hy*L}}; }
+function levelAngle(lv){ const n=Math.hypot(lv.gx,lv.gy)||1; return Math.atan2(lv.gx/n,lv.gy/n)*180/Math.PI; } // skutečná vodorovina v obraze [°], y dolů
+function autoAxis(lv){ if(lv&&lv.have){ S.axisLevel={roll:lv.roll,pitch:lv.pitch,horiz:levelAngle(lv)}; if(Math.abs(lv.pitch)>3) toast(`Snímek není kolmý (náklon ${lv.pitch.toFixed(1)}°) – svislé rozměry jsou zkreslené`); }
+  $('#jointStatus').textContent='hledám ložné spáry…';
+  setTimeout(()=>{ let J=null; try{ J=detectJoints(); }catch(e){} S.joints=J;
+    if(S.axisSrc==='manual'){ update(); return; }
+    if(J&&J.conf>=0.3){ setAxisAngle(J.alpha); S.axisSrc='joints'; }
+    else if(S.axisLevel){ setAxisAngle(S.axisLevel.horiz); S.axisSrc='level'; }
+    else { S.axisSrc=null; S.axis={p1:null,p2:null}; }
+    update(); },60); }
+$('#jointBtn').onclick=()=>{ if(!S.img){ toast('Nejprve načtěte foto'); return; } $('#jointStatus').textContent='hledám ložné spáry…'; setTimeout(()=>{ let J=null; try{ J=detectJoints(); }catch(e){} S.joints=J; if(J){ setAxisAngle(J.alpha); S.axisSrc='joints'; S.demo=false; if(J.conf<0.3) toast('Spáry nejsou na snímku zřetelné – osu zkontrolujte'); } update(); },30); };
+function axisText(r,html){ const B=t=>html?`<b>${t}</b>`:t; const deg=v=>fmt(v,2)+'°'; if(!r.hasAxis) return (html?'Osa x: ':'')+B('vodorovná hrana snímku')+(html?' (spáry ani vodováha nedaly osu – zadejte ji dvěma body na ložné spáře).':'');
+  const ang=Math.atan2(r.u.y,r.u.x)*180/Math.PI; const lv=S.axisLevel; const tilt=lv?` · spáry vůči skutečné vodorovině ${ang-lv.horiz>=0?'+':''}${deg(ang-lv.horiz)}`:'';
+  const pre=html?'Osa x: ':'';
+  if(S.axisSrc==='joints') return pre+B('automaticky z ložných spár')+`, sklon ${deg(ang)} vůči hraně snímku, spolehlivost ${S.joints?fmt(S.joints.conf*100,0)+' %':'–'}${tilt}.`;
+  if(S.axisSrc==='level') return pre+B('z vodováhy při focení')+` (rotace ${fmt(lv.roll,1)}°, náklon od svislice ${fmt(lv.pitch,1)}°) – spáry na snímku nejsou zřetelné.`;
+  return pre+B('ručně podle ložné spáry')+`, sklon ${deg(ang)} vůči hraně snímku${tilt}.`; }
+function camShot(e){ const lv={have:cam.have,gx:cam.g?cam.g.x:0,gy:cam.g?cam.g.y:0,roll:cam.roll,pitch:cam.pitch,t:Date.now()};
+  if(camV.videoWidth){ if(e) e.preventDefault(); // živý náhled: snímek přímo z videa
+    const w=camV.videoWidth,h=camV.videoHeight; const k=Math.min(1,2400/Math.max(w,h)); const oc=document.createElement('canvas'); oc.width=Math.round(w*k); oc.height=Math.round(h*k); oc.getContext('2d').drawImage(camV,0,0,oc.width,oc.height); camClose(); setImage(oc.toDataURL('image/jpeg',0.92),true,()=>autoAxis(lv)); return; }
+  // nativní foťák: label otevře <input capture> sám; úhel z okamžiku spouště si zapamatovat (stránka může být během focení odložena)
+  try{ localStorage.setItem('trhlina.level',JSON.stringify(lv)); }catch(e){} pendingLevel=lv; setTimeout(camClose,300); }
+let pendingLevel=null;
+function takePendingLevel(){ let lv=pendingLevel; pendingLevel=null; if(!lv){ try{ lv=JSON.parse(localStorage.getItem('trhlina.level')||'null'); }catch(e){} } try{ localStorage.removeItem('trhlina.level'); }catch(e){} if(lv&&Date.now()-lv.t<15*60000) return lv; return null; }
+const SENS=window.isSecureContext&&('DeviceMotionEvent' in window)&&!(document.featurePolicy&&document.featurePolicy.allowsFeature&&!document.featurePolicy.allowsFeature('accelerometer'));
+if(!SENS){ $('#photoBtn').hidden=true; $('#photoLbl').hidden=false; } // bez senzorů (lokální soubor, artefakt): rovnou foťák, osa ze spár
+$('#photoBtn').onclick=camOpen; $('#camLive').onclick=camLive; $('#camClose').onclick=camClose; $('#camShot').onclick=camShot;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&cam.on) camClose(); });
+
+/* ---------- start ---------- */
+new ResizeObserver(resize).observe(wrap); resize();
+if(!restoreState()){ const d=makeDemo(); S.demo=true; S.pairs=d.pairs; S.scale=d.scale; S.axis=d.axis; S.name='Ukázka – rozestoupení štítu'; $('#crackName').value=S.name; setImage(d.img,false); }
+setMode(S.demo?'pair':'scale');
+})();
+</script>
+
+<script>
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
+</script>
+</body>
+</html>

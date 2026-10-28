@@ -113,6 +113,8 @@ button:disabled{opacity:.45;cursor:default}
 .sw{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
 .sw.a{background:var(--a)} .sw.b{background:var(--b)} .sw.sc{background:var(--accent);border-radius:0} .sw.ax{background:var(--cyan);transform:rotate(45deg);border-radius:0} .sw.cr{background:var(--path);border-radius:0;width:14px;height:4px}
 .auto{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px;border:1px solid var(--rule);background:var(--paper)}
+.pfields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center}
+.pfields input{width:100%}
 .auto input[type=range]{flex:1 1 120px;min-width:80px;accent-color:var(--path)}
 
 .nudge{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px;border:1px dashed var(--rule);background:var(--paper)}
@@ -287,10 +289,19 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
       <p class="small muted" style="margin:8px 0 0">Záznamy se ukládají jen v tomto prohlížeči. Pro porovnání v čase měřte vždy tytéž dvojice bodů (fixní značky na zdivu) a foťte kolmo ze stejné vzdálenosti. Aktivní trhlina = zřetelný nárůst šířky; periodický průběh = teplotní vliv.</p>
     </section>
 
-    <section class="card">
+    <section class="card" id="sec-proto">
       <h2>Protokol</h2>
-      <textarea id="proto" readonly aria-label="Text protokolu"></textarea>
-      <div class="row" style="margin-top:8px"><button type="button" id="copyProto">Kopírovat protokol</button></div>
+      <div class="pfields">
+        <label class="small" for="pObj">Objekt / místo</label><input type="text" id="pObj" placeholder="např. RD Choceň, severní štít">
+        <label class="small" for="pAuth">Zpracoval</label><input type="text" id="pAuth" placeholder="jméno">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button type="button" class="primary" id="pdfSave">📄 PDF protokol</button>
+        <button type="button" id="pdfShare" hidden>↗ Sdílet PDF</button>
+        <button type="button" class="ghost" id="copyProto">Kopírovat text</button>
+      </div>
+      <p class="status" id="pdfStatus" style="margin:6px 0 0"></p>
+      <details style="margin-top:8px"><summary class="small">Textová verze</summary><textarea id="proto" readonly aria-label="Text protokolu" style="margin-top:6px"></textarea></details>
     </section>
 
     <section class="card" id="sec-backup">
@@ -328,7 +339,7 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
       <div class="gstep"><span class="n">2</span><div><b>Zadej měřítko.</b> Klepni na jeden a pak druhý konec cihly (nebo dvě rysky pravítka) a pod fotkou vyber délku (cihla 290 mm, …). Bez měřítka aplikace pořád určí poměr m<sub>x</sub>/m<sub>y</sub>, jen nebude znát milimetry.</div></div>
       <div class="gstep"><span class="n">3</span><div><b>Osa x se najde sama</b> podle ložných spár (modrá čárkovaná čára). Zkontroluj, že leží na spáře. Na omítnuté zdi, kde spáry nejsou vidět, klepni v režimu <i>Osa spáry</i> na dva body ve vodorovném směru.</div></div>
       <div class="gstep"><span class="n">4</span><div><b>Najdi stejnolehlé body.</b> V režimu <i>Trasa trhliny</i> klepni na začátek a konec trhliny (u klikaté i na lomy) a stiskni <b>Najít stejnolehlé body</b>. Aplikace porovná tvar obou okrajů a nakreslí šipky posunu. Špatnou šipku vyber a smaž, chybějící doplň v režimu <i>Dvojice ručně</i>: klepni bod A na levé (spodní) části, pak tentýž bod B na druhé straně trhliny. Potřeba jsou aspoň 3 dvojice po celé délce.</div></div>
-      <div class="gstep"><span class="n">5</span><div><b>Přečti výsledek</b> v rámečku Vyhodnocení, napiš označení trhliny (např. „T1 severní štít“) a dej <b>Uložit měření</b>. Text do zprávy zkopíruješ tlačítkem <i>Kopírovat protokol</i>.</div></div>
+      <div class="gstep"><span class="n">5</span><div><b>Přečti výsledek</b> v rámečku Vyhodnocení, napiš označení trhliny (např. „T1 severní štít“) a dej <b>Uložit měření</b>. V sekci <i>Protokol</i> vyplň objekt a zpracovatele a tlačítkem <b>📄 PDF protokol</b> ulož protokol na A4 (fotka s vektory, tabulka, vyhodnocení, historie měření), případně ho rovnou pošli přes <b>Sdílet PDF</b>.</div></div>
     </div>
 
     <div class="gsec"><h3>Ovládání fotky</h3>
@@ -593,7 +604,7 @@ function renderPanel(){
 
 /* ---------- protokol ---------- */
 function renderProto(){ const r=R; const d=new Date(); const L=[];
-  L.push(`ANALÝZA TRHLINY VE ZDIVU – vektor posuvu stejnolehlých bodů`); L.push(`Trhlina: ${S.name||'(neoznačeno)'}    Datum: ${d.toLocaleDateString('cs-CZ')} ${d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`);
+  L.push(`ANALÝZA TRHLINY VE ZDIVU – vektor posuvu stejnolehlých bodů`); if(S.obj) L.push(`Objekt: ${S.obj}`); if(S.auth) L.push(`Zpracoval: ${S.auth}`); L.push(`Trhlina: ${S.name||'(neoznačeno)'}    Datum: ${d.toLocaleDateString('cs-CZ')} ${d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`);
   L.push(`Měřítko: ${r.hasScale?fmt(r.k,4)+' mm/px (úsečka '+fmt(S.scale.len,0)+' mm)':'nezadáno – hodnoty v px'}`); L.push('Osa x: '+axisText(r,false)); L.push('');
   L.push(`Dvojice   mx [${r.unit}]   my [${r.unit}]   šířka [${r.unit}]   |mx|/|my|`);
   r.rows.forEach(x=>L.push(`${String(x.i+1).padStart(4)}     ${fmt(x.mx,2).padStart(8)}   ${fmt(x.my,2).padStart(8)}   ${fmt(x.w,2).padStart(10)}   ${(x.ratio===Infinity?'∞':fmt(x.ratio,1)).padStart(8)}`));
@@ -604,6 +615,100 @@ function renderProto(){ const r=R; const d=new Date(); const L=[];
   $('#proto').value=L.join('\n'); }
 const copy=async (t,ok,ta)=>{ try{ await navigator.clipboard.writeText(t); toast(ok); }catch(e){ ta.hidden=false; ta.value=t; ta.focus(); ta.select(); toast('Text označen – zkopírujte ručně'); } };
 $('#copyProto').onclick=()=>copy($('#proto').value,'Protokol zkopírován',$('#proto'));
+
+/* ---------- PDF protokol (jsPDF + vložené písmo s češtinou) ---------- */
+try{ S.auth=localStorage.getItem('trhlina.auth')||''; }catch(e){ S.auth=''; } $('#pAuth').value=S.auth;
+$('#pAuth').oninput=e=>{ S.auth=e.target.value; try{ localStorage.setItem('trhlina.auth',S.auth); }catch(err){} renderProto(); };
+$('#pObj').oninput=e=>{ S.obj=e.target.value; renderProto(); saveState(); };
+function loadScript(src){ return new Promise((res,rej)=>{ const el=document.createElement('script'); el.src=src; el.onload=res; el.onerror=()=>{ el.remove(); rej(new Error(src)); }; document.head.appendChild(el); }); }
+let pdfLibP=null;
+function ensurePdfLib(){ if(window.jspdf&&window.PDF_FONTS) return Promise.resolve(); if(!pdfLibP) pdfLibP=(async()=>{
+    if(!window.jspdf){ try{ await loadScript('jspdf.umd.min.js'); }catch(e){ await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); } }
+    if(!window.PDF_FONTS) await loadScript('pdf-fonts.js'); })().catch(e=>{ pdfLibP=null; throw e; });
+  return pdfLibP; }
+// knihovnu načíst v klidu na pozadí, aby byl PDF po klepnutí hned (sdílení vyžaduje čerstvé klepnutí)
+setTimeout(()=>{ ensurePdfLib().catch(()=>{}); },2500);
+try{ if(navigator.canShare&&navigator.canShare({files:[new File(['x'],'t.pdf',{type:'application/pdf'})]})) $('#pdfShare').hidden=false; }catch(e){}
+
+function renderAnnotated(){ if(!S.img) return null; const root=document.documentElement; const sv={CW,CH,DPR,view:{...S.view},w:cv.width,h:cv.height,sel:S.sel,theme:root.getAttribute('data-theme')};
+  const LW=1000, LH=Math.round(LW*S.ih/S.iw);
+  try{ root.setAttribute('data-theme','light'); CW=LW; CH=LH; DPR=2; cv.width=LW*2; cv.height=LH*2; S.view={s:LW/S.iw,ox:0,oy:0}; S.sel=null; draw(); return {url:cv.toDataURL('image/jpeg',0.85),w:LW,h:LH}; }
+  finally{ if(sv.theme==null) root.removeAttribute('data-theme'); else root.setAttribute('data-theme',sv.theme); CW=sv.CW; CH=sv.CH; DPR=sv.DPR; cv.width=sv.w; cv.height=sv.h; S.view=sv.view; S.sel=sv.sel; draw(); } }
+
+function buildPdf(){ const r=R; const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4',compress:true});
+  doc.addFileToVFS('dvs.ttf',PDF_FONTS.sans); doc.addFont('dvs.ttf','dvs','normal'); doc.addFileToVFS('dvsb.ttf',PDF_FONTS.bold); doc.addFont('dvsb.ttf','dvs','bold'); doc.addFileToVFS('dvm.ttf',PDF_FONTS.mono); doc.addFont('dvm.ttf','dvm','normal');
+  const C={ink:[23,35,58],line:[43,74,126],muted:[95,108,132],rule:[200,208,222],fill:[243,245,241],accent:[217,142,4],good:[47,143,91],warn:[192,122,16],crit:[194,58,46],neutral:[95,108,132]};
+  const ML=15, MR=15, PW=210, TW=PW-ML-MR, BOT=282; let y=15;
+  const font=(f,st,sz,col)=>{ doc.setFont(f,st); doc.setFontSize(sz); doc.setTextColor(...(col||C.ink)); };
+  const lh=sz=>sz*0.3528*1.38; // výška řádku v mm
+  const need=h=>{ if(y+h>BOT){ doc.addPage(); y=15; } };
+  const para=(txt,sz,opt={})=>{ font(opt.f||'dvs',opt.st||'normal',sz,opt.col); const x=ML+(opt.indent||0); const lines=doc.splitTextToSize(txt,TW-(opt.indent||0)); for(const ln of lines){ need(lh(sz)); doc.text(ln,x,y+lh(sz)*0.75); y+=lh(sz); } };
+  const section=t=>{ need(14); y+=3; font('dvm','normal',8.5,C.line); doc.text(t.toUpperCase(),ML,y+3); y+=4.5; doc.setDrawColor(...C.rule); doc.setLineWidth(0.3); doc.line(ML,y,ML+TW,y); y+=3; };
+  const d=new Date(); const ds=d.toLocaleDateString('cs-CZ')+' '+d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});
+  const u=r.unit;
+  // záhlaví
+  font('dvm','normal',8.5,C.line); doc.text('PROTOKOL · ANALÝZA TRHLINY VE ZDIVU',ML,y+3); y+=6;
+  font('dvs','bold',17,C.ink); const tl=doc.splitTextToSize(S.name||'Trhlina (neoznačeno)',TW); tl.forEach(t=>{ doc.text(t,ML,y+6); y+=7.5; });
+  if(S.obj){ font('dvs','normal',11,C.muted); doc.splitTextToSize(S.obj,TW).forEach(t=>{ doc.text(t,ML,y+4); y+=5.2; }); }
+  y+=1; doc.setDrawColor(...C.line); doc.setLineWidth(0.6); doc.line(ML,y,ML+TW,y); y+=4;
+  // identifikace
+  const kv=[['Datum zpracování',ds],['Zpracoval',S.auth||'—'],['Snímek',`${S.iw} × ${S.ih} px`+(r.hasScale?`, měřítko ${fmt(r.k,4)} mm/px (úsečka ${fmt(S.scale.len,0)} mm)`:', měřítko nezadáno – hodnoty v px')],['Osa x',axisText(r,false)],['Počet dvojic',String(r.n)]];
+  for(const [k,v] of kv){ font('dvs','normal',9,C.muted); const lines=doc.splitTextToSize(v,TW-38); need(lines.length*lh(9.5)); doc.text(k,ML,y+3.4); font('dvs','normal',9.5,C.ink); lines.forEach((ln,i)=>doc.text(ln,ML+38,y+3.4+i*lh(9.5))); y+=lines.length*lh(9.5)+0.8; }
+  // vyhodnocení
+  section('Vyhodnocení');
+  const V=$('#verdict'); const lvl=V.dataset.level||'neutral'; const kick=(V.querySelector('.kicker')||{}).textContent||''; const h3=(V.querySelector('h3')||{}).textContent||''; const pp=((V.querySelector('p')||{}).textContent||'').replace(/\s+/g,' '); const lis=[...V.querySelectorAll('li')].map(e=>e.textContent.replace(/\s+/g,' '));
+  const y0=y; font('dvm','normal',8,C.muted); need(6); doc.text(kick.toUpperCase(),ML+5,y+3); y+=5; 
+  font('dvs','bold',12.5,C.ink); doc.splitTextToSize(h3,TW-5).forEach(t=>{ need(lh(12.5)); doc.text(t,ML+5,y+lh(12.5)*0.75); y+=lh(12.5); }); y+=1;
+  font('dvs','normal',9.5,C.ink); doc.splitTextToSize(pp,TW-5).forEach(t=>{ need(lh(9.5)); doc.text(t,ML+5,y+lh(9.5)*0.75); y+=lh(9.5); });
+  for(const li of lis){ y+=0.6; const ls=doc.splitTextToSize(li,TW-10); ls.forEach((t,i)=>{ need(lh(9.5)); if(i===0) doc.text('•',ML+6,y+lh(9.5)*0.75); doc.text(t,ML+10,y+lh(9.5)*0.75); y+=lh(9.5); }); }
+  doc.setFillColor(...(C[lvl]||C.neutral)); if(y>y0) doc.rect(ML,y0,1.6,Math.max(4,y-y0),'F'); y+=3;
+  // KPI
+  if(r.n){ const kp=[['Σ|mx| / Σ|my|',r.R===Infinity?'∞':fmt(r.R,1)],['mx ≥ my',`${r.share} / ${r.n}`],[`šířka ø / max [${u}]`,`${fmt(r.wMean,1)} / ${fmt(r.wMax,1)}`],[`ø mx · ø my [${u}]`,`${fmt(r.mxMean,1)} · ${fmt(r.myMean,1)}`]];
+    need(15); const cw=TW/4; kp.forEach(([l,v],i)=>{ const x=ML+i*cw; doc.setDrawColor(...C.rule); doc.setLineWidth(0.3); doc.rect(x+0.5,y,cw-1,13); font('dvm','normal',7.2,C.muted); doc.text(l,x+2.5,y+4.2); font('dvm','normal',12.5,i===0&&lvl!=='neutral'?C[lvl]:C.ink); doc.text(v,x+2.5,y+10.5); }); y+=16;
+    if(r.kin){ const k=r.kin; para(`Kinematický rozbor (model tuhého tělesa, ${r.n} dvojic): posun ${fmt(k.tx,2)} / ${fmt(k.ty,2)} ${u}, pootočení ${fmt(k.theta*1000,3)} mrad, podíl rotace na rozpětí bodů ρ = ${k.rho===Infinity?'∞':fmt(k.rho,2)} – ${r.rotFlag?'významné otáčení částí':'převážně posun bez otáčení'}${r.signChange?', znaménko mx se po délce trhliny mění':''}. Reziduum fitu ${fmt(k.rms,2)} ${u}.`,9,{col:C.ink}); } }
+  // snímek
+  const img=renderAnnotated(); if(img){ let avail=BOT-y-24; if(avail<75){ doc.addPage(); y=15; avail=BOT-y-24; } const maxH=Math.min(150,avail); let w=TW, h=TW*img.h/img.w; if(h>maxH){ h=maxH; w=h*img.w/img.h; } section('Snímek trhliny'); const x=ML+(TW-w)/2; doc.addImage(img.url,'JPEG',x,y,w,h); doc.setDrawColor(...C.rule); doc.rect(x,y,w,h); y+=h+2;
+    para('Obr. 1 – Dvojice stejnolehlých bodů: A (červeně) na levé/spodní části, B (modře) na protější straně trhliny; oranžově vektor posunu A→B a měřítko, modrá čárkovaná osa = ložná spára (směr x).',8,{col:C.muted}); }
+  // tabulka dvojic
+  if(r.n){ section('Dvojice stejnolehlých bodů');
+    const cols=[['#',10,'l'],[`mx [${u}]`,30,'r'],[`my [${u}]`,30,'r'],[`šířka [${u}]`,32,'r'],['|mx| / |my|',34,'r'],['shoda',44,'r']]; const rowH=6;
+    const head=()=>{ need(rowH+1); doc.setFillColor(...C.fill); doc.rect(ML,y,TW,rowH,'F'); font('dvm','normal',8,C.muted); let x=ML; cols.forEach(([t,w,a])=>{ doc.text(t,a==='r'?x+w-2:x+2,y+4.1,{align:a==='r'?'right':'left'}); x+=w; }); y+=rowH; };
+    head(); r.rows.forEach((row,i)=>{ if(y+rowH>BOT){ doc.addPage(); y=15; head(); } const q=S.pairs[row.i].q; const vals=[String(row.i+1),fmt(row.mx,2),fmt(row.my,2),fmt(row.w,2),row.ratio===Infinity?'∞':fmt(row.ratio,1),q!=null?fmt(q*100,0)+' %':'ručně']; font('dvm','normal',9,C.ink); let x=ML; cols.forEach(([t,w,a],j)=>{ doc.text(vals[j],a==='r'?x+w-2:x+2,y+4.2,{align:a==='r'?'right':'left'}); x+=w; }); doc.setDrawColor(...C.rule); doc.setLineWidth(0.2); doc.line(ML,y+rowH,ML+TW,y+rowH); y+=rowH; });
+    need(rowH); const sx=r.rows.reduce((a,b)=>a+Math.abs(b.mx),0), sy=r.rows.reduce((a,b)=>a+Math.abs(b.my),0); font('dvm','normal',9,C.ink); doc.setFont('dvm','normal'); let x=ML; const sums=['Σ|·|',fmt(sx,2),fmt(sy,2),'ø '+fmt(r.wMean,2),r.R===Infinity?'∞':fmt(r.R,2),''];
+    cols.forEach(([t,w,a],j)=>{ doc.text(sums[j],a==='r'?x+w-2:x+2,y+4.2,{align:a==='r'?'right':'left'}); x+=w; }); doc.setDrawColor(...C.ink); doc.setLineWidth(0.4); doc.line(ML,y,ML+TW,y); y+=rowH+1;
+    para('mx – složka posunu rovnoběžná s ložnou spárou (kladná = rozevření), my – složka kolmá (záporná = část B poklesla vůči části A).',8,{col:C.muted}); }
+  // sledování v čase
+  const name=(S.name||'').trim(); const recs=(loadHist()[name]||[]).slice().sort((a,b)=>a.t-b.t);
+  if(name&&recs.length){ const est=14+(recs.length+1)*5.6+(recs.length>=2?52:0); if(est<200) need(est); section('Sledování v čase'); const codes={H:'vodorovný',HR:'vodorovný + rotace',U:'nejednoznačný',V:'svislý',few:'–'};
+    const cols=[['Datum',40,'l'],['šířka ø',30,'r'],['šířka max',30,'r'],['poměr',24,'r'],['mechanismus',56,'l']]; const rowH=5.6;
+    need(rowH); doc.setFillColor(...C.fill); doc.rect(ML,y,TW,rowH,'F'); font('dvm','normal',8,C.muted); let x=ML; cols.forEach(([t,w,a])=>{ doc.text(t,a==='r'?x+w-2:x+2,y+3.9,{align:a==='r'?'right':'left'}); x+=w; }); y+=rowH;
+    recs.forEach(rc=>{ need(rowH); const dt=new Date(rc.t); const vals=[dt.toLocaleDateString('cs-CZ'),fmt(rc.w,2)+' '+rc.unit,fmt(rc.wMax,2)+' '+rc.unit,rc.R==null?'∞':fmt(rc.R,1),(codes[rc.code]||'')+(rc.demo?' (ukázka)':'')]; font('dvm','normal',8.6,C.ink); let x=ML; cols.forEach(([t,w,a],j)=>{ doc.text(vals[j],a==='r'?x+w-2:x+2,y+3.9,{align:a==='r'?'right':'left'}); x+=w; }); doc.setDrawColor(...C.rule); doc.setLineWidth(0.2); doc.line(ML,y+rowH,ML+TW,y+rowH); y+=rowH; });
+    if(recs.length>=2){ const first=recs[0], last=recs[recs.length-1]; const dw=last.w-first.w; const days=Math.max(1,Math.round((last.t-first.t)/864e5)); const thr=Math.max(0.3,0.1*first.w);
+      let lv='good', msg; if(dw>thr){ lv='crit'; msg=`Trhlina je aktivní: šířka vzrostla o ${fmt(dw,2)} ${last.unit} za ${days} dní (${fmt(dw/days*365,1)} ${last.unit}/rok). Příčina porušování stále působí.`; } else if(dw<-thr){ lv='warn'; msg=`Šířka klesla o ${fmt(-dw,2)} ${last.unit} – pravděpodobně periodický (teplotní, vlhkostní) průběh.`; } else msg=`Bez zřetelného nárůstu (Δ ${fmt(dw,2)} ${last.unit} za ${days} dní).`;
+      y+=2; // graf
+      const gh=32, gx=ML+12, gw=TW-12; need(gh+12); const xs=recs.map(q=>q.t), ys=recs.map(q=>q.w); const t0=Math.min(...xs), t1=Math.max(...xs), w1=Math.max(...ys)*1.15||1;
+      const X=t=>gx+(t1>t0?(t-t0)/(t1-t0):0.5)*gw, Y=w=>y+gh-(w/w1)*gh; doc.setDrawColor(...C.rule); doc.setLineWidth(0.3); doc.line(gx,y,gx,y+gh); doc.line(gx,y+gh,gx+gw,y+gh);
+      font('dvm','normal',7.5,C.muted); doc.text(fmt(w1/1.15,1),gx-1.5,Y(w1/1.15)+1,{align:'right'}); doc.text('0',gx-1.5,y+gh+1,{align:'right'}); doc.text(new Date(t0).toLocaleDateString('cs-CZ'),gx,y+gh+4.5); doc.text(new Date(t1).toLocaleDateString('cs-CZ'),gx+gw,y+gh+4.5,{align:'right'}); doc.text(`šířka [${last.unit}]`,gx+1.5,y+3);
+      doc.setDrawColor(...C[lv]); doc.setLineWidth(0.7); for(let i=1;i<recs.length;i++) doc.line(X(recs[i-1].t),Y(recs[i-1].w),X(recs[i].t),Y(recs[i].w)); doc.setFillColor(...C[lv]); recs.forEach(q=>doc.circle(X(q.t),Y(q.w),0.9,'F')); y+=gh+7;
+      para(msg,9.5,{col:C[lv]}); } }
+  // metodika
+  section('Metodika');
+  para('Posun částí zdiva oddělených trhlinou se určuje z vektoru mezi stejnolehlými body (tentýž lom okraje trhliny na obou stranách), rozloženého na složku mx rovnoběžnou se základovou (ložnou) spárou a složku my kolmou na ni. Platí-li empiricky mx ≥ my přibližně po celé délce trhliny, jde o převažující vodorovné odsouvání a svislou složku lze při zesílení vodorovným předpětím zanedbat; převaha my ukazuje na pokles podzákladí, řešený zajištěním založení. Analýza trhlin je doplněna kinematickým rozborem (model tuhého tělesa) – výrazné pootáčení částí ukazuje na dílčí poklesy, kdy samotné vodorovné předepnutí bez zvýšení svislé tuhosti není vhodné.',9);
+  y+=1; para('Osa x je určena '+(S.axisSrc==='joints'?'automaticky z ložných spár na snímku':S.axisSrc==='level'?'z vodováhy telefonu při focení':R.hasAxis?'ručně podle ložné spáry':'jako vodorovná hrana snímku')+'. Přesnost závisí na kolmosti snímku ke zdivu, rozlišení a správné identifikaci stejnolehlých bodů. Protokol je podkladem pro rozhodnutí statika, nenahrazuje stavebně-technický průzkum ani dlouhodobé sledování trhlin.',8.5,{col:C.muted});
+  // patička
+  const n=doc.getNumberOfPages(); for(let i=1;i<=n;i++){ doc.setPage(i); doc.setDrawColor(...C.rule); doc.setLineWidth(0.3); doc.line(ML,287,ML+TW,287); font('dvm','normal',7.5,C.muted); doc.text(`Analýza trhliny – ${S.name||'neoznačeno'}${S.obj?' · '+S.obj:''}`.slice(0,95),ML,291); doc.text(`strana ${i} / ${n}`,ML+TW,291,{align:'right'}); }
+  return doc; }
+
+function pdfName(){ const d=new Date(); const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; const base=(S.name||'trhlina').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,50)||'trhlina'; return `protokol_${base}_${iso}.pdf`; }
+async function makePdf(share){ if(!S.img){ toast('Nejprve načtěte foto'); return; } if(!R||!R.n){ toast('Nejsou žádné dvojice bodů – protokol by byl prázdný'); return; }
+  const st=$('#pdfStatus'); st.textContent='Připravuji PDF…';
+  try{ await ensurePdfLib(); }catch(e){ st.textContent='Knihovnu pro PDF se nepodařilo načíst. Připojte se k internetu a zkuste to znovu.'; return; }
+  let blob; try{ blob=buildPdf().output('blob'); }catch(e){ st.textContent='PDF se nepodařilo vytvořit: '+e.message; return; }
+  const fname=pdfName(); st.textContent=`${fname} · ${fmt(blob.size/1024,0)} kB`;
+  if(share){ try{ await navigator.share({files:[new File([blob],fname,{type:'application/pdf'})],title:fname}); return; }catch(e){ if(e&&e.name==='AbortError') return; } }
+  try{ if(window.claude&&typeof window.claude.use==='function'){ const dl=await window.claude.use('downloads'); if(dl){ await dl.save({filename:fname,data:blob}); toast('PDF uloženo'); return; } } }catch(e){ if(e&&e.code==='declined') return; }
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),60000); toast('PDF uloženo do Stažených'); }
+$('#pdfSave').onclick=()=>makePdf(false); $('#pdfShare').onclick=()=>makePdf(true);
 
 /* ---------- sledování ---------- */
 function loadHist(){ try{ return JSON.parse(localStorage.getItem(LS_HIST)||'{}'); }catch(e){ return {}; } }
@@ -645,8 +750,8 @@ $('#impGo').onclick=()=>{ try{ const o=JSON.parse($('#impTxt').value); if(o.hist
   $('#impTxt').hidden=true; $('#impRow').hidden=true; $('#impTxt').value=''; update(); toast('Záloha načtena'); }catch(e){ toast('Neplatný JSON'); } };
 
 /* ---------- uložení rozpracovaného stavu ---------- */
-let saveT; function saveState(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ if(S.demo||!S.imgData){ localStorage.removeItem(LS_STATE); return; } localStorage.setItem(LS_STATE,JSON.stringify({name:S.name,scale:S.scale,axis:S.axis,axisLevel:S.axisLevel||null,axisSrc:S.axisSrc||null,joints:S.joints||null,pairs:S.pairs,path:S.path,img:S.imgData})); }catch(e){} },400); }
-function restoreState(){ try{ const o=JSON.parse(localStorage.getItem(LS_STATE)||'null'); if(!o||!o.img) return false; S.name=o.name||''; $('#crackName').value=S.name; S.scale=o.scale; S.axis=o.axis; S.pairs=o.pairs||[]; S.path=o.path||[]; S.axisLevel=o.axisLevel||null; S.axisSrc=o.axisSrc||null; S.joints=o.joints||null; $('#scaleLen').value=S.scale.len; setImage(o.img,false); return true; }catch(e){ return false; } }
+let saveT; function saveState(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ if(S.demo||!S.imgData){ localStorage.removeItem(LS_STATE); return; } localStorage.setItem(LS_STATE,JSON.stringify({name:S.name,obj:S.obj||'',scale:S.scale,axis:S.axis,axisLevel:S.axisLevel||null,axisSrc:S.axisSrc||null,joints:S.joints||null,pairs:S.pairs,path:S.path,img:S.imgData})); }catch(e){} },400); }
+function restoreState(){ try{ const o=JSON.parse(localStorage.getItem(LS_STATE)||'null'); if(!o||!o.img) return false; S.name=o.name||''; $('#crackName').value=S.name; S.obj=o.obj||''; $('#pObj').value=S.obj; S.scale=o.scale; S.axis=o.axis; S.pairs=o.pairs||[]; S.path=o.path||[]; S.axisLevel=o.axisLevel||null; S.axisSrc=o.axisSrc||null; S.joints=o.joints||null; $('#scaleLen').value=S.scale.len; setImage(o.img,false); return true; }catch(e){ return false; } }
 
 /* ---------- ukázková data (syntetická zeď s trhlinou) ---------- */
 function makeDemo(){ const PX=1.2, W=1200, H=800, bl=290*PX, bh=65*PX, j=12*PX; const A=document.createElement('canvas'); A.width=W; A.height=H; const c=A.getContext('2d');
@@ -862,7 +967,7 @@ function renderFlow(){ if(!R) return; const own=!!S.img&&!S.demo;
     else if(S.path.length===1){ txt='<b>Klepni na konec trhliny</b> (u klikaté nejdřív na lomy cestou).'; btn='Trasa trhliny'; act=()=>{ setMode('crack'); goCanvas(); }; }
     else if(S.path.length<2){ txt='<b>Označ trhlinu:</b> klepni na její začátek a konec (u klikaté i na lomy). Pak aplikace najde body sama.'; btn='Trasa trhliny'; act=()=>{ setMode('crack'); goCanvas(); }; }
     else { txt='<b>Trasa je označená.</b> Spusť hledání stejnolehlých bodů.'; btn='⌕ Najít body'; act=()=>{ autoFind(); goCanvas(); }; } }
-  else { const h=$('#verdict h3'); txt=`<b>Hotovo:</b> ${h?h.textContent:''}. Pojmenuj trhlinu a ulož měření.`; btn='Výsledek ↓'; act=FLOW.eval.act; }
+  else { const h=$('#verdict h3'); txt=`<b>Hotovo:</b> ${h?h.textContent:''}. Pojmenuj trhlinu, ulož měření a vytvoř PDF protokol.`; btn='Výsledek ↓'; act=FLOW.eval.act; }
   const order=['foto','scale','axis','pairs','eval']; const firstOpen=order.find(k=>!done[k]);
   document.querySelectorAll('#flow button').forEach(b=>{ const k=b.dataset.step; let st=done[k]?'done':(k===firstOpen?'next':'todo'); if(k==='pairs'&&own&&!done.pairs&&S.pairs.length) st=(k===firstOpen?'next':'part'); b.dataset.st=st; });
   $('#nextTxt').innerHTML=txt; $('#nextBtn').textContent=btn; nextAct=act; }

@@ -265,6 +265,7 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
         <input type="number" id="scaleLen" min="1" step="1" value="290"><span class="mono small">mm</span>
       </div>
       <div class="presets" style="margin-top:6px">
+        <button type="button" data-len="100">terč 100</button>
         <button type="button" data-len="290">cihla 290</button>
         <button type="button" data-len="140">cihla 140</button>
         <button type="button" data-len="65">cihla 65</button>
@@ -273,6 +274,7 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
         <button type="button" data-len="300">300</button>
       </div>
       <p class="status" id="scaleStatus" style="margin:8px 0 0"></p>
+      <div class="row" style="margin-top:6px"><button type="button" id="rectBtn" hidden>▱ Srovnat perspektivu podle terče</button><button type="button" class="ghost" id="targetPdf">🖨 Terč k tisku (PDF)</button></div>
       <p class="status" id="axisStatus" style="margin:4px 0 0"></p>
       <div class="row" style="margin-top:6px"><button type="button" id="jointBtn">⟷ Najít osu ze spár</button><span class="status" id="jointStatus"></span></div>
     </section>
@@ -367,8 +369,8 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
 
     <div class="gsec"><h3>Postup na stavbě</h3>
       <p class="small muted" style="margin-bottom:8px">Lišta nahoře nad fotkou vždy ukazuje, který krok je na řadě, a tlačítkem vedle textu ho rovnou spustíš.</p>
-      <div class="gstep"><span class="n">1</span><div><b>Vyfoť trhlinu.</b> Telefon drž kolmo na zeď, celá trhlina v záběru, ostře. Do záběru dej <b>celou cihlu nebo pravítko</b>, podle nich se počítají milimetry. Pokud se po klepnutí na Vyfotit ukáže vodováha, srovnej bublinu do zeleného kruhu a stiskni spoušť. Jinak se rovnou otevře foťák.</div></div>
-      <div class="gstep"><span class="n">2</span><div><b>Zadej měřítko.</b> Klepni na jeden a pak druhý konec cihly (nebo dvě rysky pravítka) a pod fotkou vyber délku (cihla 290 mm, …). Bez měřítka aplikace pořád určí poměr m<sub>x</sub>/m<sub>y</sub>, jen nebude znát milimetry.</div></div>
+      <div class="gstep"><span class="n">1</span><div><b>Vyfoť trhlinu.</b> Telefon drž kolmo na zeď, celá trhlina v záběru, ostře. Nejlepší je nalepit vedle trhliny <b>tištěný měřicí terč</b> (tlačítko <i>Terč k tisku</i> v sekci Měřítko a osa): aplikace ho na fotce najde sama, nastaví měřítko a pozná, jestli je snímek kolmý. Bez terče dej do záběru <b>celou cihlu nebo pravítko</b>. Pokud se po klepnutí na Vyfotit ukáže vodováha, srovnej bublinu do zeleného kruhu a stiskni spoušť. Jinak se rovnou otevře foťák.</div></div>
+      <div class="gstep"><span class="n">2</span><div><b>Měřítko.</b> S terčem se nastaví samo (při zkreslení nad 1,5 % nabídne <i>Srovnat perspektivu</i> – fotka se přepočítá do roviny zdiva, body se pak zadávají znovu). Jinak klepni na jeden a pak druhý konec cihly (nebo dvě rysky pravítka) a pod fotkou vyber délku (cihla 290 mm, …). Bez měřítka aplikace pořád určí poměr m<sub>x</sub>/m<sub>y</sub>, jen nebude znát milimetry.</div></div>
       <div class="gstep"><span class="n">3</span><div><b>Osa x se najde sama</b> podle ložných spár (modrá čárkovaná čára). Zkontroluj, že leží na spáře. Na omítnuté zdi, kde spáry nejsou vidět, klepni v režimu <i>Osa spáry</i> na dva body ve vodorovném směru.</div></div>
       <div class="gstep"><span class="n">4</span><div><b>Najdi stejnolehlé body.</b> V režimu <i>Trasa trhliny</i> klepni na začátek a konec trhliny (u klikaté i na lomy) a stiskni <b>Najít stejnolehlé body</b>. Aplikace porovná tvar obou okrajů a nakreslí šipky posunu. Špatnou šipku vyber a smaž, chybějící doplň v režimu <i>Dvojice ručně</i>: klepni bod A na levé (spodní) části, pak tentýž bod B na druhé straně trhliny. Potřeba jsou aspoň 3 dvojice po celé délce.</div></div>
       <div class="gstep"><span class="n">5</span><div><b>Přečti výsledek</b> v rámečku Vyhodnocení, napiš označení trhliny (např. „T1 severní štít“) a dej <b>Uložit měření</b>. V sekci <i>Protokol</i> vyplň objekt a zpracovatele a tlačítkem <b>📄 PDF protokol</b> ulož protokol na A4 (fotka s vektory, tabulka, vyhodnocení, historie měření), případně ho rovnou pošli přes <b>Sdílet PDF</b>.</div></div>
@@ -425,7 +427,7 @@ const cv = $('#cv'), wrap = $('#cwrap'), ctx = cv.getContext('2d');
 const LS_STATE = 'trhlina.state.v1', LS_HIST = 'trhlina.hist.v1';
 let CW = 0, CH = 0, DPR = 1;
 
-const S = { img:null, iw:0, ih:0, imgData:null, scale:{p1:null,p2:null,len:290}, axis:{p1:null,p2:null}, pairs:[], pending:null, mode:'pair', sel:null, view:{s:1,ox:0,oy:0}, demo:false, name:'', path:[], auto:null };
+const S = { target:null, scaleSrc:null, img:null, iw:0, ih:0, imgData:null, scale:{p1:null,p2:null,len:290}, axis:{p1:null,p2:null}, pairs:[], pending:null, mode:'pair', sel:null, view:{s:1,ox:0,oy:0}, demo:false, name:'', path:[], auto:null };
 let R = null; // výsledky výpočtu
 
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -478,7 +480,7 @@ function handleTap(sx,sy){
   if(best){ S.sel={type:best.type,idx:best.idx,which:best.which}; update(); return; }
   if(S.mode==='pan'){ S.sel=null; update(); return; }
   if(S.demo){ S.demo=false; }
-  if(S.mode==='scale'){ const sc=S.scale; if(!sc.p1||sc.p2){ sc.p1=ip; sc.p2=null; S.sel={type:'scale',which:'p1'}; } else { sc.p2=ip; S.sel={type:'scale',which:'p2'}; } }
+  if(S.mode==='scale'){ S.scaleSrc='manual'; const sc=S.scale; if(!sc.p1||sc.p2){ sc.p1=ip; sc.p2=null; S.sel={type:'scale',which:'p1'}; } else { sc.p2=ip; S.sel={type:'scale',which:'p2'}; } }
   else if(S.mode==='axis'){ S.axisSrc='manual'; const ax=S.axis; if(!ax.p1||ax.p2){ ax.p1=ip; ax.p2=null; S.sel={type:'axis',which:'p1'}; } else { ax.p2=ip; S.sel={type:'axis',which:'p2'}; } }
   else if(S.mode==='pair'){ if(!S.pending){ S.pending=ip; S.sel={type:'pending'}; } else { S.pairs.push({a:S.pending,b:ip}); S.pending=null; S.sel={type:'pair',idx:S.pairs.length-1,which:'b'}; } }
   else if(S.mode==='crack'){ S.path.push(ip); S.auto=null; S.sel={type:'path',idx:S.path.length-1}; }
@@ -501,8 +503,8 @@ $('#selOff').onclick=()=>{ S.sel=null; update(); };
 $('#selCenter').onclick=()=>{ const p=selPt(); if(!p) return; const ns=Math.max(S.view.s,6); S.view.s=ns; S.view.ox=CW/2-p.x*ns; S.view.oy=CH/2-p.y*ns; draw(); };
 $('#undoPair').onclick=()=>{ if(S.pending) S.pending=null; else S.pairs.pop(); S.sel=null; S.demo=false; update(); };
 $('#clearAll').onclick=()=>{ S.pairs=[]; S.pending=null; S.scale.p1=S.scale.p2=null; S.axis.p1=S.axis.p2=null; S.path=[]; S.auto=null; S.sel=null; S.demo=false; update(); };
-$('#scaleLen').oninput=e=>{ S.scale.len=Math.max(0.1,parseFloat(e.target.value)||0); update(); };
-document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ $('#scaleLen').value=b.dataset.len; S.scale.len=+b.dataset.len; update(); });
+$('#scaleLen').oninput=e=>{ S.scale.len=Math.max(0.1,parseFloat(e.target.value)||0); if(S.scaleSrc==='target'&&S.scale.len!==100) S.scaleSrc='manual'; update(); };
+document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ $('#scaleLen').value=b.dataset.len; S.scale.len=+b.dataset.len; if(b.dataset.len==='100'&&S.target&&S.target.corners){ applyTarget(S.target); } else if(S.scaleSrc==='target'&&S.scale.len!==100) S.scaleSrc='manual'; update(); });
 $('#crackName').oninput=e=>{ S.name=e.target.value; renderHist(); saveState(); };
 
 /* ---------- foto ---------- */
@@ -514,7 +516,7 @@ const onFile=async e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return
   }catch(err){ toast('Snímek se nepodařilo načíst'); }
 };
 $('#file').addEventListener('change',onFile); $('#file2').addEventListener('change',onFile); $('#file0').addEventListener('change',onFile);
-function setImage(dataUrl,fresh,after){ const im=new Image(); im.onload=()=>{ S.img=im; S.iw=im.naturalWidth; S.ih=im.naturalHeight; S.imgData=dataUrl; S._gray=null; S._small=null; if(fresh){ S.pairs=[]; S.pending=null; S.scale.p1=S.scale.p2=null; S.axis.p1=S.axis.p2=null; S.axisLevel=null; S.axisSrc=null; S.joints=null; S.path=[]; S.auto=null; S.sel=null; S.demo=false; setMode('scale'); } if(after) after(); fitView(); update(); }; im.src=dataUrl; }
+function setImage(dataUrl,fresh,after){ const im=new Image(); im.onload=()=>{ S.img=im; S.iw=im.naturalWidth; S.ih=im.naturalHeight; S.imgData=dataUrl; S._gray=null; S._small=null; if(fresh){ S.pairs=[]; S.pending=null; S.scale.p1=S.scale.p2=null; S.axis.p1=S.axis.p2=null; S.axisLevel=null; S.axisSrc=null; S.joints=null; S.target=null; S.scaleSrc=null; S.path=[]; S.auto=null; S.sel=null; S.demo=false; setMode('scale'); } if(after) after(); fitView(); update(); }; im.src=dataUrl; }
 
 /* ---------- výpočet ---------- */
 function compute(){
@@ -576,6 +578,8 @@ function draw(){ ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,CW,CH);
   const cyan=css('--cyan');
   if(S.axis.p1&&S.axis.p2){ const a=toScr(S.axis.p1), b=toScr(S.axis.p2); const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1; const ex=dx/L*4000, ey=dy/L*4000; ctx.strokeStyle=cyan; ctx.lineWidth=1.2; ctx.setLineDash([8,6]); ctx.beginPath(); ctx.moveTo(a.x-ex,a.y-ey); ctx.lineTo(b.x+ex,b.y+ey); ctx.stroke(); ctx.setLineDash([]); label('osa ložné spáry (x)',a.x+10,a.y-8,cyan); }
   if(S.axis.p1) dot(S.axis.p1,cyan,'dm',isSel('axis',undefined,'p1')); if(S.axis.p2) dot(S.axis.p2,cyan,'dm',isSel('axis',undefined,'p2'));
+  // terč
+  if(S.target&&S.target.corners){ const q=S.target.corners.map(toScr); ctx.strokeStyle=css('--accent'); ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.beginPath(); q.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]); label('terč 100 mm',q[3].x,q[3].y+16,css('--accent')); }
   // měřítko
   const acc=css('--accent');
   if(S.scale.p1&&S.scale.p2){ const a=toScr(S.scale.p1), b=toScr(S.scale.p2); ctx.strokeStyle=acc; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); label(`${fmt(S.scale.len,0)} mm`,(a.x+b.x)/2-10,(a.y+b.y)/2-8,acc); }
@@ -604,7 +608,8 @@ function renderNudge(){ const n=$('#nudge'); const p=selPt(); n.hidden=!p; if(!p
 
 function renderPanel(){
   const r=R;
-  $('#scaleStatus').innerHTML = r.hasScale ? `Měřítko: <b>${fmt(r.k,4)} mm/px</b> (${fmt(hyp(S.scale.p1,S.scale.p2),1)} px = ${fmt(S.scale.len,0)} mm)` : 'Měřítko <b>nezadáno</b> – posuvy v px; poměr m<sub>x</sub>/m<sub>y</sub> je i tak platný.';
+  const T=S.target; $('#scaleStatus').innerHTML = r.hasScale ? (S.scaleSrc==='target'&&T ? `Měřítko: <b>z tištěného terče 100 mm</b>, ${fmt(r.k,4)} mm/px (strana ${fmt(T.sizePx||hyp(S.scale.p1,S.scale.p2),1)} px), perspektivní zkreslení <b>${fmt((T.dev||0)*100,1)} %</b>${T.dev>0.015&&!T.rectified?(T.dev>0.03?' – <span style="color:var(--warn)">snímek není kolmý, doporučeno srovnat</span>':' – mírné zkreslení, lze srovnat (převzorkování snímek lehce rozostří)'):(T.rectified?' – snímek srovnán do roviny terče':' – v pořádku')}.` : `Měřítko: <b>${fmt(r.k,4)} mm/px</b> (${fmt(hyp(S.scale.p1,S.scale.p2),1)} px = ${fmt(S.scale.len,0)} mm)${T&&T.corners?' – ručně; terč na snímku nalezen, klepněte „terč 100“ pro jeho použití':''}`) : 'Měřítko <b>nezadáno</b> – posuvy v px; poměr m<sub>x</sub>/m<sub>y</sub> je i tak platný. Tip: nalepte na zeď tištěný terč, najde se sám.';
+  $('#rectBtn').hidden=!(T&&T.H&&T.dev>0.015&&!T.rectified);
   $('#axisStatus').innerHTML = axisText(r,true);
   $('#jointStatus').textContent = S.jointBusy ? 'hledám ložné spáry…' : S.joints ? `spáry: ${fmt(S.joints.alpha,2)}°, ostrost ${fmt(S.joints.sharp,1)}×${S.joints.conf<0.3?' – nezřetelné':''}` : '';
   const tb=$('#pairs tbody'); tb.innerHTML='';
@@ -640,7 +645,7 @@ function renderPanel(){
 /* ---------- protokol ---------- */
 function renderProto(){ const r=R; const d=new Date(); const L=[];
   L.push(`ANALÝZA TRHLINY VE ZDIVU – vektor posuvu stejnolehlých bodů`); if(S.obj) L.push(`Objekt: ${S.obj}`); if(S.auth) L.push(`Zpracoval: ${S.auth}`); L.push(`Trhlina: ${S.name||'(neoznačeno)'}    Datum: ${d.toLocaleDateString('cs-CZ')} ${d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`);
-  L.push(`Měřítko: ${r.hasScale?fmt(r.k,4)+' mm/px (úsečka '+fmt(S.scale.len,0)+' mm)':'nezadáno – hodnoty v px'}`); L.push('Osa x: '+axisText(r,false)); L.push('');
+  L.push(`Měřítko: ${r.hasScale?fmt(r.k,4)+' mm/px ('+(S.scaleSrc==='target'?'tištěný terč 100 mm'+(S.target&&S.target.dev!=null?', zkreslení '+fmt(S.target.dev*100,1)+' %':''):'úsečka '+fmt(S.scale.len,0)+' mm')+')':'nezadáno – hodnoty v px'}`); L.push('Osa x: '+axisText(r,false)); L.push('');
   L.push(`Dvojice   mx [${r.unit}]   my [${r.unit}]   šířka [${r.unit}]   |mx|/|my|`);
   r.rows.forEach(x=>L.push(`${String(x.i+1).padStart(4)}     ${fmt(x.mx,2).padStart(8)}   ${fmt(x.my,2).padStart(8)}   ${fmt(x.w,2).padStart(10)}   ${(x.ratio===Infinity?'∞':fmt(x.ratio,1)).padStart(8)}`));
   if(r.n){ L.push(''); L.push(`Σ|mx| / Σ|my| = ${r.R===Infinity?'∞':fmt(r.R,2)};  mx ≥ my splněno u ${r.share} z ${r.n} dvojic;  šířka ø ${fmt(r.wMean,2)} / max ${fmt(r.wMax,2)} ${r.unit}`);
@@ -782,7 +787,7 @@ function buildPdf(){ const r=R; const { jsPDF }=window.jspdf; const doc=new jsPD
   if(S.obj){ font('dvs','normal',11,C.muted); doc.splitTextToSize(S.obj,TW).forEach(t=>{ doc.text(t,ML,y+4); y+=5.2; }); }
   y+=1; doc.setDrawColor(...C.line); doc.setLineWidth(0.6); doc.line(ML,y,ML+TW,y); y+=4;
   // identifikace
-  const kv=[['Datum zpracování',ds],['Zpracoval',S.auth||'—'],['Snímek',`${S.iw} × ${S.ih} px`+(r.hasScale?`, měřítko ${fmt(r.k,4)} mm/px (úsečka ${fmt(S.scale.len,0)} mm)`:', měřítko nezadáno – hodnoty v px')],['Osa x',axisText(r,false)],['Počet dvojic',String(r.n)]];
+  const kv=[['Datum zpracování',ds],['Zpracoval',S.auth||'—'],['Snímek',`${S.iw} × ${S.ih} px`+(r.hasScale?`, měřítko ${fmt(r.k,4)} mm/px (${S.scaleSrc==='target'?'tištěný terč 100 mm'+(S.target&&S.target.dev!=null?', zkreslení '+fmt(S.target.dev*100,1)+' %':'')+(S.target&&S.target.rectified?', snímek srovnán do roviny terče':''):'úsečka '+fmt(S.scale.len,0)+' mm'})`:', měřítko nezadáno – hodnoty v px')],['Osa x',axisText(r,false)],['Počet dvojic',String(r.n)]];
   for(const [k,v] of kv){ font('dvs','normal',9,C.muted); const lines=doc.splitTextToSize(v,TW-38); need(lines.length*lh(9.5)); doc.text(k,ML,y+3.4); font('dvs','normal',9.5,C.ink); lines.forEach((ln,i)=>doc.text(ln,ML+38,y+3.4+i*lh(9.5))); y+=lines.length*lh(9.5)+0.8; }
   // vyhodnocení
   section('Vyhodnocení');
@@ -844,7 +849,8 @@ async function makePdf(share){ if(!S.img){ toast('Nejprve načtěte foto'); retu
   const st=$('#pdfStatus'); st.textContent='Připravuji PDF…';
   try{ await ensurePdfLib(); }catch(e){ st.textContent='Knihovnu pro PDF se nepodařilo načíst. Připojte se k internetu a zkuste to znovu.'; return; }
   let blob; try{ blob=buildPdf().output('blob'); }catch(e){ st.textContent='PDF se nepodařilo vytvořit: '+e.message; return; }
-  const fname=pdfName(); st.textContent=`${fname} · ${fmt(blob.size/1024,0)} kB`;
+  const fname=pdfName(); st.textContent=`${fname} · ${fmt(blob.size/1024,0)} kB`; await savePdfBlob(blob,fname,share); }
+async function savePdfBlob(blob,fname,share){
   if(share){ try{ await navigator.share({files:[new File([blob],fname,{type:'application/pdf'})],title:fname}); return; }catch(e){ if(e&&e.name==='AbortError') return; } }
   try{ if(window.claude&&typeof window.claude.use==='function'){ const dl=await window.claude.use('downloads'); if(dl){ await dl.save({filename:fname,data:blob}); toast('PDF uloženo'); return; } } }catch(e){ if(e&&e.code==='declined') return; }
   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),60000); toast('PDF uloženo do Stažených'); }
@@ -891,8 +897,8 @@ $('#impGo').onclick=()=>{ try{ const o=JSON.parse($('#impTxt').value); if(o.hist
   $('#impTxt').hidden=true; $('#impRow').hidden=true; $('#impTxt').value=''; update(); toast('Záloha načtena'); }catch(e){ toast('Neplatný JSON'); } };
 
 /* ---------- uložení rozpracovaného stavu ---------- */
-let saveT; function saveState(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ if(S.demo||!S.imgData){ localStorage.removeItem(LS_STATE); return; } localStorage.setItem(LS_STATE,JSON.stringify({name:S.name,obj:S.obj||'',scale:S.scale,axis:S.axis,axisLevel:S.axisLevel||null,axisSrc:S.axisSrc||null,joints:S.joints||null,pairs:S.pairs,path:S.path,img:S.imgData})); }catch(e){} },400); }
-function restoreState(){ try{ const o=JSON.parse(localStorage.getItem(LS_STATE)||'null'); if(!o||!o.img) return false; S.name=o.name||''; $('#crackName').value=S.name; S.obj=o.obj||''; $('#pObj').value=S.obj; S.scale=o.scale; S.axis=o.axis; S.pairs=o.pairs||[]; S.path=o.path||[]; S.axisLevel=o.axisLevel||null; S.axisSrc=o.axisSrc||null; S.joints=o.joints||null; $('#scaleLen').value=S.scale.len; setImage(o.img,false); return true; }catch(e){ return false; } }
+let saveT; function saveState(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ if(S.demo||!S.imgData){ localStorage.removeItem(LS_STATE); return; } localStorage.setItem(LS_STATE,JSON.stringify({name:S.name,obj:S.obj||'',scale:S.scale,scaleSrc:S.scaleSrc||null,target:S.target?{corners:S.target.corners,k:S.target.k,dev:S.target.dev,sizePx:S.target.sizePx,rectified:!!S.target.rectified,H:S.target.H}:null,axis:S.axis,axisLevel:S.axisLevel||null,axisSrc:S.axisSrc||null,joints:S.joints||null,pairs:S.pairs,path:S.path,img:S.imgData})); }catch(e){} },400); }
+function restoreState(){ try{ const o=JSON.parse(localStorage.getItem(LS_STATE)||'null'); if(!o||!o.img) return false; S.name=o.name||''; $('#crackName').value=S.name; S.obj=o.obj||''; $('#pObj').value=S.obj; S.scale=o.scale; S.scaleSrc=o.scaleSrc||null; S.target=o.target||null; S.axis=o.axis; S.pairs=o.pairs||[]; S.path=o.path||[]; S.axisLevel=o.axisLevel||null; S.axisSrc=o.axisSrc||null; S.joints=o.joints||null; $('#scaleLen').value=S.scale.len; setImage(o.img,false); return true; }catch(e){ return false; } }
 
 /* ---------- ukázková data (syntetická zeď s trhlinou) ---------- */
 function makeDemo(){ const PX=1.2, W=1200, H=800, bl=290*PX, bh=65*PX, j=12*PX; const A=document.createElement('canvas'); A.width=W; A.height=H; const c=A.getContext('2d');
@@ -1040,6 +1046,77 @@ function camLoop(){ if(!cam.on) return; cam.raf=requestAnimationFrame(camLoop); 
   c.fillStyle='rgba(255,255,255,.7)'; c.font='12px '+css('--f-mono'); c.textAlign='center'; c.fillText('← rotace →',cx,cy+R+18); c.save(); c.translate(cx-R-14,cy); c.rotate(-Math.PI/2); c.fillText('← náklon →',0,0); c.restore();
   if(cam.have){ const k=R/6; const bx=Math.max(-R,Math.min(R,cam.roll*k)), by=Math.max(-R,Math.min(R,-cam.pitch*k)); c.fillStyle=col; c.beginPath(); c.arc(cx+bx,cy+by,Math.max(12,R*0.22),0,Math.PI*2); c.fill(); }
   const rd=$('#camRead'); rd.textContent=cam.have?`rotace ${cam.roll>=0?'+':''}${cam.roll.toFixed(1)}°   náklon od svislice ${cam.pitch>=0?'+':''}${cam.pitch.toFixed(1)}°   ${dev<=1?'OK':'srovnejte'}`:(Date.now()-cam.t0<2500?'vodováha: čekám na senzory…':'senzory nedostupné – spoušť otevře foťák, vodorovinu pak najdu podle ložných spár'); rd.style.borderColor=col; }
+/* ---------- měřicí terč: detekce, měřítko, srovnání perspektivy ---------- */
+// ---- detekce měřicího terče: černý čtvercový rámeček 100 mm (vnější) / 76 mm (vnitřní) na bílém papíru ----
+function solveLin(A,b){ const n=b.length; const M=A.map((r,i)=>r.concat([b[i]])); for(let c=0;c<n;c++){ let p=c; for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[p][c])) p=r; [M[c],M[p]]=[M[p],M[c]]; const d=M[c][c]||1e-12; for(let r=0;r<n;r++){ if(r===c) continue; const f=M[r][c]/d; for(let k=c;k<=n;k++) M[r][k]-=f*M[c][k]; } } return M.map((r,i)=>r[n]/(r[i]||1e-12)); }
+function homography(src,dst){ // src[i]→dst[i], 4 bodů; vrací H (3x3) s H[8]=1
+  const A=[],b=[]; for(let i=0;i<4;i++){ const {x,y}=src[i], {x:u,y:v}=dst[i]; A.push([x,y,1,0,0,0,-u*x,-u*y]); b.push(u); A.push([0,0,0,x,y,1,-v*x,-v*y]); b.push(v); } const h=solveLin(A,b); return [h[0],h[1],h[2],h[3],h[4],h[5],h[6],h[7],1]; }
+function hApply(H,p){ const w=H[6]*p.x+H[7]*p.y+H[8]; return {x:(H[0]*p.x+H[1]*p.y+H[2])/w,y:(H[3]*p.x+H[4]*p.y+H[5])/w}; }
+function hInv(H){ const [a,b,c,d,e,f,g,h,i]=H; const A=e*i-f*h,B=-(d*i-f*g),C=d*h-e*g,D=-(b*i-c*h),E=a*i-c*g,F=-(a*h-b*g),G=b*f-c*e,Hh=-(a*f-c*d),I=a*e-b*d; const det=a*A+b*B+c*C; return [A/det,D/det,G/det,B/det,E/det,Hh/det,C/det,F/det,I/det]; }
+function detectTarget(G,opts){ const SIDE=(opts&&opts.side)||100, INNER=(opts&&opts.inner)||76; const f=Math.max(1,Math.ceil(Math.max(G.w,G.h)/1200)); const w=Math.floor(G.w/f),h=Math.floor(G.h/f); const a=new Float32Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let s=0; for(let yy=0;yy<f;yy++){ const row=(y*f+yy)*G.w+x*f; for(let xx=0;xx<f;xx++) s+=G.g[row+xx]; } a[y*w+x]=s/(f*f); }
+  // lokální práh (integrální obraz, okno ~ w/12)
+  const I=new Float64Array((w+1)*(h+1)); for(let y=1;y<=h;y++){ let rs=0; for(let x=1;x<=w;x++){ rs+=a[(y-1)*w+x-1]; I[y*(w+1)+x]=I[(y-1)*(w+1)+x]+rs; } }
+  const R=Math.max(8,Math.round(Math.max(w,h)/14)); const dark=new Uint8Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){ const x0=Math.max(0,x-R),x1=Math.min(w,x+R+1),y0=Math.max(0,y-R),y1=Math.min(h,y+R+1); const m=(I[y1*(w+1)+x1]-I[y0*(w+1)+x1]-I[y1*(w+1)+x0]+I[y0*(w+1)+x0])/((x1-x0)*(y1-y0)); dark[y*w+x]=a[y*w+x]<m-28?1:0; }
+  const lab=new Int32Array(w*h).fill(-1); const cands=[]; const st=[];
+  for(let i0=0;i0<w*h;i0++){ if(!dark[i0]||lab[i0]>=0) continue; const id=cands.length; let n=0,minx=w,maxx=0,miny=h,maxy=0,sx=0,sy=0; const px=[]; st.push(i0); lab[i0]=id;
+    while(st.length){ const j=st.pop(); const x=j%w,y=(j-x)/w; n++; px.push(j); sx+=x; sy+=y; if(x<minx)minx=x; if(x>maxx)maxx=x; if(y<miny)miny=y; if(y>maxy)maxy=y; const nb=[j-1,j+1,j-w,j+w]; for(let q=0;q<4;q++){ const k=nb[q]; if(k<0||k>=w*h) continue; if(q===0&&x===0) continue; if(q===1&&x===w-1) continue; if(lab[k]<0&&dark[k]){ lab[k]=id; st.push(k); } } }
+    const bw=maxx-minx+1,bh=maxy-miny+1; cands.push({id,n,minx,maxx,miny,maxy,bw,bh,cx:sx/n,cy:sy/n,px}); }
+  const good=[]; const exp=(INNER*INNER)/(SIDE*SIDE); // podíl díry na celé ploše čtverce
+  for(const c of cands){ if(c.n<120||c.bw<14||c.bh<14) continue; const asp=c.bw/c.bh; if(asp<0.55||asp>1.8) continue; const fill=c.n/(c.bw*c.bh); if(fill<0.12||fill>0.8) continue;
+    // díra: vyplnit světlé od těžiště, nesmí dosáhnout okraje bboxu
+    const cxi=Math.round(c.cx),cyi=Math.round(c.cy); if(cxi<c.minx||cxi>c.maxx||cyi<c.miny||cyi>c.maxy||dark[cyi*w+cxi]) continue;
+    const seen=new Uint8Array(w*h); const q=[cyi*w+cxi]; seen[q[0]]=1; let hole=0, leak=false, hx=0,hy=0; while(q.length&&!leak){ const j=q.pop(); const x=j%w,y=(j-x)/w; hole++; hx+=x; hy+=y; if(x<=c.minx||x>=c.maxx||y<=c.miny||y>=c.maxy){ leak=true; break; } const nb=[j-1,j+1,j-w,j+w]; for(const k of nb){ if(!seen[k]&&!dark[k]){ seen[k]=1; q.push(k); } } }
+    if(leak) continue; const ratio=hole/(hole+c.n); if(Math.abs(ratio-exp)>0.16) continue;
+    // těžiště díry ≈ těžiště rámečku
+    if(Math.hypot(hx/hole-c.cx,hy/hole-c.cy)>0.12*Math.max(c.bw,c.bh)) continue;
+    good.push({...c,hole,ratio,score:c.n*(1-Math.abs(ratio-exp)/0.16)}); }
+  if(!good.length) return null; good.sort((p,q)=>q.score-p.score); const c=good[0];
+  // rohy: nejvzdálenější pixely od těžiště ve 4 úhlových sektorech
+  const corners=[]; const ang=j=>Math.atan2((j-(j%w))/w-c.cy,(j%w)-c.cx);
+  let far=null,fd=-1; for(const j of c.px){ const d=Math.hypot(j%w-c.cx,(j-(j%w))/w-c.cy); if(d>fd){ fd=d; far=j; } } corners.push(far);
+  for(let k=1;k<4;k++){ let best=null,bd=-1; for(const j of c.px){ const d=Math.hypot(j%w-c.cx,(j-(j%w))/w-c.cy); if(d<0.5*fd) continue; let ok=true; for(const cc of corners){ let da=Math.abs(ang(j)-ang(cc)); if(da>Math.PI) da=2*Math.PI-da; if(da<Math.PI/3){ ok=false; break; } } if(ok&&d>bd){ bd=d; best=j; } } if(best==null) return null; corners.push(best); }
+  let pts=corners.map(j=>({x:(j%w)*f+f/2,y:Math.floor(j/w)*f+f/2})); const ccx=c.cx*f,ccy=c.cy*f; pts.sort((p,q)=>Math.atan2(p.y-ccy,p.x-ccx)-Math.atan2(q.y-ccy,q.x-ccx)); // CCW v obrazových souřadnicích (y dolů) = po směru hodin na obrazovce
+  // start = levý horní (min x+y)
+  let s0=0; for(let i=1;i<4;i++) if(pts[i].x+pts[i].y<pts[s0].x+pts[s0].y) s0=i; pts=pts.slice(s0).concat(pts.slice(0,s0));
+  // zpřesnění: každá strana = přímka proložená hranou (max gradient podél vnější normály) v plném rozlišení
+  const samp=(x,y)=>{ x=Math.min(Math.max(x,0),G.w-1.001); y=Math.min(Math.max(y,0),G.h-1.001); const x0=x|0,y0=y|0,fx=x-x0,fy=y-y0; const g=G.g,i=y0*G.w+x0; return (g[i]*(1-fx)+g[i+1]*fx)*(1-fy)+(g[i+G.w]*(1-fx)+g[i+G.w+1]*fx)*fy; };
+  const lines=[]; for(let i=0;i<4;i++){ const A=pts[i],B=pts[(i+1)%4]; const L=Math.hypot(B.x-A.x,B.y-A.y); const tx=(B.x-A.x)/L,ty=(B.y-A.y)/L; let nx=ty,ny=-tx; // normála; zvolit směr ven od těžiště
+    const mid={x:(A.x+B.x)/2,y:(A.y+B.y)/2}; if((mid.x-ccx)*nx+(mid.y-ccy)*ny<0){ nx=-nx; ny=-ny; }
+    const N=Math.max(12,Math.min(60,Math.round(L/8))); const E=[]; const rng=Math.max(3,Math.min(25,L*0.08));
+    for(let k=1;k<N;k++){ const t=k/N; if(t<0.12||t>0.88) continue; const bx=A.x+(B.x-A.x)*t, by=A.y+(B.y-A.y)*t; let bk=0,bv=-Infinity; const prof=[]; for(let d=-rng;d<=rng;d+=0.5){ prof.push(samp(bx+nx*d,by+ny*d)); } for(let q=1;q<prof.length;q++){ const gv=prof[q]-prof[q-1]; if(gv>bv){ bv=gv; bk=q; } } if(bv<6) continue; const d=-rng+(bk-0.5)*0.5; E.push({x:bx+nx*d,y:by+ny*d}); }
+    if(E.length<5) return null; // přímka: PCA bodů, robustně (2 průchody s vyřazením odlehlých)
+    let pts2=E; let ln=null; for(let pass=0;pass<2;pass++){ const mx=pts2.reduce((s,p)=>s+p.x,0)/pts2.length,my=pts2.reduce((s,p)=>s+p.y,0)/pts2.length; let sxx=0,sxy=0,syy=0; for(const p of pts2){ sxx+=(p.x-mx)**2; sxy+=(p.x-mx)*(p.y-my); syy+=(p.y-my)**2; } const th=0.5*Math.atan2(2*sxy,sxx-syy); const dx=Math.cos(th),dy=Math.sin(th); ln={px:mx,py:my,dx,dy}; const res=pts2.map(p=>Math.abs((p.x-mx)*dy-(p.y-my)*dx)); const med=res.slice().sort((a,b)=>a-b)[res.length>>1]; const keep=pts2.filter((p,i)=>res[i]<=Math.max(1.5,3*med)); if(keep.length>=5) pts2=keep; }
+    lines.push(ln); }
+  const inter=(l1,l2)=>{ const d=l1.dx*l2.dy-l1.dy*l2.dx; if(Math.abs(d)<1e-9) return null; const t=((l2.px-l1.px)*l2.dy-(l2.py-l1.py)*l2.dx)/d; return {x:l1.px+l1.dx*t,y:l1.py+l1.dy*t}; };
+  const ref=[]; for(let i=0;i<4;i++){ const p=inter(lines[(i+3)%4],lines[i]); if(!p) return null; ref.push(p); }
+  const sides=ref.map((p,i)=>Math.hypot(ref[(i+1)%4].x-p.x,ref[(i+1)%4].y-p.y)); const mean=sides.reduce((a,b)=>a+b,0)/4; const k=SIDE/mean;
+  const H=homography(ref,[{x:0,y:0},{x:SIDE,y:0},{x:SIDE,y:SIDE},{x:0,y:SIDE}]); // px → mm v rovině terče
+  const dev=Math.max(...sides)/Math.min(...sides)-1; const d1=Math.hypot(ref[2].x-ref[0].x,ref[2].y-ref[0].y), d2=Math.hypot(ref[3].x-ref[1].x,ref[3].y-ref[1].y); const diagDev=Math.abs(d1-d2)/Math.max(d1,d2);
+  return {corners:ref,sides,k,H,dev:Math.max(dev,diagDev),sizePx:mean,ratio:c.ratio}; }
+
+function applyTarget(T){ S.target=T; S.scale={p1:{x:T.corners[0].x,y:T.corners[0].y},p2:{x:T.corners[1].x,y:T.corners[1].y},len:100}; $('#scaleLen').value=100; S.scaleSrc='target'; }
+function rectifyByTarget(){ const T=S.target; if(!T||!T.H||!S.img){ toast('Terč nebyl nalezen'); return; } const st=$('#scaleStatus'); st.textContent='Srovnávám perspektivu…';
+  setTimeout(()=>{ try{ const H=T.H; const W0=S.iw,H0=S.ih; const cs=[{x:0,y:0},{x:W0,y:0},{x:W0,y:H0},{x:0,y:H0}]; const ws=cs.map(p=>H[6]*p.x+H[7]*p.y+H[8]); if(ws.some(w=>w<=0)||Math.max(...ws)/Math.min(...ws)>6){ st.textContent='Zkreslení je pro srovnání příliš velké – vyfoťte znovu blíž ke kolmici.'; return; }
+    const mm=cs.map(p=>hApply(H,p)); // vepsaný obdélník do zobrazeného čtyřúhelníku (bez černých okrajů, které by rušily hledání spár)
+    let x0=Math.max(mm[0].x,mm[3].x),x1=Math.min(mm[1].x,mm[2].x),y0=Math.max(mm[0].y,mm[1].y),y1=Math.min(mm[2].y,mm[3].y); if(x1-x0<50||y1-y0<50){ x0=Math.min(...mm.map(p=>p.x)); x1=Math.max(...mm.map(p=>p.x)); y0=Math.min(...mm.map(p=>p.y)); y1=Math.max(...mm.map(p=>p.y)); }
+    let k=T.k; const maxDim=2400; let ow=Math.round((x1-x0)/k),oh=Math.round((y1-y0)/k); const sc=Math.max(ow,oh)/maxDim; if(sc>1){ k*=sc; ow=Math.round((x1-x0)/k); oh=Math.round((y1-y0)/k); }
+    const src=document.createElement('canvas'); src.width=W0; src.height=H0; const sctx=src.getContext('2d'); sctx.drawImage(S.img,0,0); const sd=sctx.getImageData(0,0,W0,H0).data;
+    const out=document.createElement('canvas'); out.width=ow; out.height=oh; const octx=out.getContext('2d'); const od=octx.createImageData(ow,oh); const o=od.data; const Hi=hInv(H);
+    for(let j=0;j<oh;j++){ const Y=y0+(j+0.5)*k; for(let i=0;i<ow;i++){ const X=x0+(i+0.5)*k; const w=Hi[6]*X+Hi[7]*Y+Hi[8]; const sx=(Hi[0]*X+Hi[1]*Y+Hi[2])/w-0.5, sy=(Hi[3]*X+Hi[4]*Y+Hi[5])/w-0.5; const oi=(j*ow+i)*4; if(sx<0||sy<0||sx>=W0-1||sy>=H0-1){ o[oi]=o[oi+1]=o[oi+2]=16; o[oi+3]=255; continue; } const xi=sx|0,yi=sy|0,fx=sx-xi,fy=sy-yi; const i00=(yi*W0+xi)*4,i10=i00+4,i01=i00+W0*4,i11=i01+4; for(let c=0;c<3;c++){ o[oi+c]=(sd[i00+c]*(1-fx)+sd[i10+c]*fx)*(1-fy)+(sd[i01+c]*(1-fx)+sd[i11+c]*fx)*fy; } o[oi+3]=255; } }
+    octx.putImageData(od,0,0); const keepName=S.name; setImage(out.toDataURL('image/jpeg',0.92),true,()=>{ S.name=keepName; $('#crackName').value=keepName; S.target={rectified:true}; autoAxis(null); }); toast('Snímek srovnán do roviny terče – měřítko a body se nastavují znovu'); }catch(e){ st.textContent='Srovnání se nezdařilo: '+e.message; } },30); }
+$('#rectBtn').onclick=rectifyByTarget;
+function buildTargetPdf(){ const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'}); doc.addFileToVFS('dvs.ttf',PDF_FONTS.sans); doc.addFont('dvs.ttf','dvs','normal'); doc.addFileToVFS('dvsb.ttf',PDF_FONTS.bold); doc.addFont('dvsb.ttf','dvs','bold');
+  const cx=105, top=60; doc.setFillColor(0,0,0); doc.rect(cx-50,top,100,100,'F'); doc.setFillColor(255,255,255); doc.rect(cx-38,top+12,76,76,'F');
+  doc.setFont('dvs','bold'); doc.setFontSize(16); doc.setTextColor(0); doc.text('Měřicí terč 100 mm',cx,top-18,{align:'center'}); doc.setFont('dvs','normal'); doc.setFontSize(10); doc.setTextColor(60);
+  doc.text('Analýza trhliny ve zdivu – nalepte na líc zdiva vedle trhliny',cx,top-10,{align:'center'});
+  doc.setDrawColor(0); doc.setLineWidth(0.4); doc.line(cx-50,top+118,cx+50,top+118); doc.line(cx-50,top+115,cx-50,top+121); doc.line(cx+50,top+115,cx+50,top+121); doc.setFontSize(9); doc.text('kontrola tisku: 100 mm (změřte pravítkem; tisknout v měřítku 100 %, ne „přizpůsobit stránce“)',cx,top+126,{align:'center'});
+  doc.setFontSize(10); doc.setTextColor(40); const tx=['Postup:','1. Vytisknout na bílý papír A4 v měřítku 100 %. Změřit vnější stranu černého rámečku – musí mít 100 mm (±0,5 mm).','2. Nalepit na zeď těsně vedle trhliny, celou plochou do roviny líce zdiva (lepicí páska po obvodu, papír nesmí být zvlněný).','3. Vyfotit trhlinu i s terčem. Aplikace terč najde sama, nastaví měřítko a z tvaru rámečku určí perspektivní zkreslení; při větším zkreslení nabídne srovnání snímku do roviny zdiva.','4. Čím větší je terč na fotce, tím přesnější je měřítko. Pro opakovaná měření nechte terč na místě nebo označte jeho polohu.'];
+  let y=top+140; for(const t of tx){ const ls=doc.splitTextToSize(t,170); ls.forEach(l=>{ doc.text(l,20,y); y+=5; }); y+=1; }
+  return doc; }
+$('#targetPdf').onclick=async()=>{ try{ await ensurePdfLib(); }catch(e){ toast('Knihovnu pro PDF se nepodařilo načíst'); return; } const blob=buildTargetPdf().output('blob'); await savePdfBlob(blob,'meric_terc_100mm.pdf',false); };
+
 /* ---------- osa x: ložné spáry z fotky (projekční profil), záložně vodováha ---------- */
 function detectJoints(){ const G=grayImg(); const f=Math.max(1,Math.ceil(Math.max(G.w,G.h)/640)); const w=Math.floor(G.w/f),h=Math.floor(G.h/f); const a=new Float32Array(w*h);
   for(let y=0;y<h;y++) for(let x=0;x<w;x++){ let s=0; for(let yy=0;yy<f;yy++){ const row=(y*f+yy)*G.w+x*f; for(let xx=0;xx<f;xx++) s+=G.g[row+xx]; } a[y*w+x]=s/(f*f); }
@@ -1060,8 +1137,9 @@ function detectJoints(){ const G=grayImg(); const f=Math.max(1,Math.ceil(Math.ma
 function setAxisAngle(deg){ const t=deg*Math.PI/180, hx=Math.cos(t), hy=Math.sin(t); const cx=S.iw/2, cy=S.ih/2, L=S.iw*0.3; S.axis={p1:{x:cx-hx*L,y:cy-hy*L},p2:{x:cx+hx*L,y:cy+hy*L}}; }
 function levelAngle(lv){ const n=Math.hypot(lv.gx,lv.gy)||1; return Math.atan2(lv.gx/n,lv.gy/n)*180/Math.PI; } // skutečná vodorovina v obraze [°], y dolů
 function autoAxis(lv){ if(lv&&lv.have){ S.axisLevel={roll:lv.roll,pitch:lv.pitch,horiz:levelAngle(lv)}; if(Math.abs(lv.pitch)>3) toast(`Snímek není kolmý (náklon ${lv.pitch.toFixed(1)}°) – svislé rozměry jsou zkreslené`); }
-  S.jointBusy=true; $('#jointStatus').textContent='hledám ložné spáry…';
-  setTimeout(()=>{ let J=null; try{ J=detectJoints(); }catch(e){} S.joints=J; S.jointBusy=false;
+  S.jointBusy=true; $('#jointStatus').textContent='hledám terč a ložné spáry…';
+  setTimeout(()=>{ let T=null; try{ T=detectTarget(grayImg()); }catch(e){} if(T){ T.rectified=!!(S.target&&S.target.rectified); if(S.scaleSrc!=='manual') applyTarget(T); else S.target=T; if(T.dev>0.015&&!T.rectified) toast(`Terč nalezen, perspektivní zkreslení ${fmt(T.dev*100,1)} % – doporučeno srovnat snímek`); else toast('Terč nalezen – měřítko nastaveno'); } else if(S.target&&S.target.rectified){ S.target=null; }
+    let J=null; try{ J=detectJoints(); }catch(e){} S.joints=J; S.jointBusy=false;
     if(S.axisSrc==='manual'){ update(); return; }
     if(J&&J.conf>=0.3){ setAxisAngle(J.alpha); S.axisSrc='joints'; }
     else if(S.axisLevel){ setAxisAngle(S.axisLevel.horiz); S.axisSrc='level'; }

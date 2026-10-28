@@ -54,6 +54,32 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--line
 small,.small{font-size:12px}
 
 header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;padding-bottom:10px;border-bottom:1px solid var(--rule);margin-bottom:12px}
+header .hgrow{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:2px}
+header #helpBtn{flex:none;align-self:center;padding:8px 12px;font-weight:600}
+/* lišta postupu */
+.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.flow button{flex-direction:column;gap:3px;padding:6px 2px;font-size:11.5px;line-height:1.15;color:var(--muted);background:var(--paper)}
+.flow button .n{font:600 12px var(--f-mono);width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--rule);border-radius:50%}
+.flow button[data-st=done]{color:var(--good)} .flow button[data-st=done] .n{background:var(--good);border-color:var(--good);color:var(--paper)}
+.flow button[data-st=next]{color:var(--ink);border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent)} .flow button[data-st=next] .n{border-color:var(--accent);color:var(--accent)}
+.flow button[data-st=part] .n{border-color:var(--good);color:var(--good)}
+.nextbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 10px;border:1px solid var(--accent);background:var(--paper)}
+.nextbar #nextTxt{flex:1 1 200px;min-width:0;font-size:13px}
+.nextbar #nextTxt b{color:var(--ink)}
+.nextbar #nextBtn{flex:none}
+/* návod */
+.guide{position:fixed;inset:0;z-index:45;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.guide .gbar{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:10px;background:var(--paper);border-bottom:1px solid var(--rule);padding:calc(8px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px))}
+.guide .gbar h2{flex:1;font-size:13px}
+.guide .gin{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px calc(28px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;font-size:14.5px;line-height:1.5}
+.guide h3{font-size:15px;margin:0 0 4px}
+.guide p{margin:0}
+.guide ol,.guide ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.guide .gstep{display:grid;grid-template-columns:30px minmax(0,1fr);gap:4px 10px;align-items:start}
+.guide .gstep .n{font:600 14px var(--f-mono);width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--accent);color:var(--accent);border-radius:50%}
+.guide .gsec{background:var(--paper);border:1px solid var(--rule);padding:12px}
+.guide .lg{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:baseline}
+
 header .sub{color:var(--muted);font-size:12.5px}
 
 .app{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
@@ -162,12 +188,21 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
 
 <div class="wrap">
 <header>
-  <h1>Analýza trhliny ve zdivu</h1>
-  <span class="sub">Vektor posuvu stejnolehlých bodů → složky m<sub>x</sub> / m<sub>y</sub> → volba sanace (vodorovné sepnutí × zajištění základů)</span>
+  <div class="hgrow"><h1>Analýza trhliny ve zdivu</h1>
+  <span class="sub">Vektor posuvu stejnolehlých bodů → složky m<sub>x</sub> / m<sub>y</sub> → volba sanace (vodorovné sepnutí × zajištění základů)</span></div>
+  <button type="button" id="helpBtn">? Návod</button>
 </header>
 
 <div class="app">
   <div class="stage">
+    <nav class="flow" id="flow" aria-label="Postup měření">
+      <button type="button" data-step="foto"><span class="n">1</span>Foto</button>
+      <button type="button" data-step="scale"><span class="n">2</span>Měřítko</button>
+      <button type="button" data-step="axis"><span class="n">3</span>Osa x</button>
+      <button type="button" data-step="pairs"><span class="n">4</span>Body</button>
+      <button type="button" data-step="eval"><span class="n">5</span>Výsledek</button>
+    </nav>
+    <div class="nextbar" id="nextbar"><span id="nextTxt"></span><button type="button" class="primary" id="nextBtn"></button></div>
     <div class="canvas-wrap" id="cwrap">
       <canvas id="cv" aria-label="Snímek trhliny s měřenými body"></canvas>
       <div class="hud" id="hud"></div>
@@ -269,19 +304,8 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
     </section>
 
     <section class="card" id="sec-help">
-      <details>
-        <summary>Postup měření a metodika</summary>
-        <ol class="steps small">
-          <li><b>Foto</b> – kolmo na líc zdiva, celá délka trhliny, ostré, s pravítkem nebo známým rozměrem cihly v záběru. Trhlina by neměla být zakrytá omítkou v místech lomů. „Vyfotit“ nejdřív ukáže vodováhu (senzory telefonu): rotace kolem osy pohledu a náklon od svislice, zelená = do 1°. Spoušť pak otevře foťák telefonu; úhel z okamžiku spouště nastaví osu x podle skutečné vodoroviny, takže drobná rotace nevadí – telefon ale mezi spouští a fotkou nenatáčejte. Náklon od svislice (nekolmý snímek) zkresluje rozměry, ten srovnejte. Natočení do strany (šikmý pohled na zeď) senzory nezměří, hlídejte rovnoběžnost spár s hranou záběru. Na https lze zapnout živý náhled a fotit přímo z něj.</li>
-          <li><b>Měřítko</b> – dva body na známé délce (hrana cihly 290 mm, pravítko). Poměr m<sub>x</sub>/m<sub>y</sub> měřítko nepotřebuje, šířky v mm ano.</li>
-          <li><b>Osa x</b> – po načtení fotky ji aplikace najde sama podle ložných spár (natáčí průmět obrazu a hledá úhel, ve kterém jsou spáry nejostřejší; přesnost řádově setiny stupně). Složka m<sub>x</sub> se měří rovnoběžně se spárou, m<sub>y</sub> kolmo – přesně podle definice „rovnoběžně se základovou spárou“. Na omítnuté zdi bez viditelných spár se použije vodováha z focení (jen na https), jinak zadejte osu ručně dvěma body v režimu „Osa spáry“. Je-li k dispozici vodováha i spáry, ukáže se i sklon spár vůči skutečné vodorovině – sám o sobě indikátor pootočení části zdiva.</li>
-          <li><b>Trasa trhliny + Najít stejnolehlé body</b> – klepněte začátek a konec trhliny (u klikatých trhlin i mezilehlé body), aplikace vytrasuje tmavou linii, extrahuje oba okraje a v oknech po délce hledá posun, při kterém levý okraj splyne s pravým (okraje trhliny jsou tvarově komplementární). Uzavřené úseky (ložné spáry bez rozevření) přeskočí; rovné úseky bez lomu posun podél hrany neurčí, proto vyžaduje zuby. Sloupec „shoda“ = podíl bodů okraje, které po posunu sedí. Bez trasy zkusí trhlinu najít sama.</li>
-          <li><b>Dvojice ručně</b> – na charakteristickém lomu okraje trhliny klepněte bod A na jedné části a odpovídající bod B na druhé. Opakujte po celé délce trhliny (min. 3 dvojice, lépe 5+). Body lze doladit šipkami po 1 px. Automaticky nalezené dvojice lze stejně upravit nebo smazat.</li>
-          <li><b>Vyhodnocení</b> – empirické kritérium m<sub>x</sub> ≥ m<sub>y</sub> po celé délce trhliny → převažuje vodorovné odsouvání → vhodné vodorovné sepnutí (dodatečné předpětí), svislou složku lze zanedbat. Při typickém rozestupování bývá poměr 8–10. Převaha m<sub>y</sub> → pokles podzákladí → řešit založení (piloty, podchycení).</li>
-          <li><b>Kinematický rozbor</b> – i když vodorovná složka převládá, může jít o pootáčení částí kolem středů otáčení vlivem dílčích poklesů (obr. 4.2). Aplikace fituje posuvy dvojic modelem tuhého tělesa (translace + rotace); významná rotace nebo změna znaménka m<sub>x</sub> po délce trhliny jsou varováním, že samotné sepnutí bez zvýšení svislé tuhosti by bylo mylné.</li>
-        </ol>
-        <p class="small muted">Nástroj je pomůckou pro rozhodnutí statika, nenahrazuje stavebně-technický průzkum ani dlouhodobé sledování trhlin. Přesnost závisí na kolmosti snímku, rozlišení a správné identifikaci stejnolehlých bodů.</p>
-      </details>
+      <h2>Návod a metodika</h2>
+      <div class="row"><button type="button" id="helpBtn2">? Otevřít návod</button></div>
     </section>
   </div>
 </div>
@@ -291,6 +315,59 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
   <canvas id="camC" aria-hidden="true"></canvas>
   <div class="camTop"><span id="camInfo" class="mono">Srovnejte telefon svisle a kolmo na zeď, pak stiskněte spoušť – otevře se foťák.</span><button type="button" id="camClose" aria-label="Zavřít">✕</button></div>
   <div class="camBot"><div class="camRead mono" id="camRead">vodováha: čekám na senzory</div><div class="row" style="justify-content:center"><button type="button" id="camLive" class="ghost" style="color:#fff;border-color:rgba(255,255,255,.5)" hidden>živý náhled</button><label id="camShot" class="shot" aria-label="Vyfotit"><input type="file" id="file" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></label></div></div>
+</div>
+<div class="guide" id="guide" hidden role="dialog" aria-modal="true" aria-labelledby="gTitle">
+  <div class="gbar"><h2 id="gTitle">Návod</h2><button type="button" class="primary" id="guideClose">Rozumím, začít</button></div>
+  <div class="gin">
+    <div class="gsec"><h3>K čemu aplikace slouží</h3>
+      <p>Z fotky trhliny změří, jak se obě části zdiva vůči sobě posunuly: vodorovně (m<sub>x</sub>, rovnoběžně s ložnou spárou) a svisle (m<sub>y</sub>). Podle toho doporučí sanaci: <b>převažuje vodorovný posun → stačí vodorovné sepnutí</b>, <b>převažuje svislý → řešit základy</b>. Navíc pozná, jestli se části zdiva pootáčejí (dílčí pokles, i když vodorovná složka vypadá větší).</p></div>
+
+    <div class="gsec"><h3>Postup na stavbě</h3>
+      <p class="small muted" style="margin-bottom:8px">Lišta nahoře nad fotkou vždy ukazuje, který krok je na řadě, a tlačítkem vedle textu ho rovnou spustíš.</p>
+      <div class="gstep"><span class="n">1</span><div><b>Vyfoť trhlinu.</b> Telefon drž kolmo na zeď, celá trhlina v záběru, ostře. Do záběru dej <b>celou cihlu nebo pravítko</b>, podle nich se počítají milimetry. Pokud se po klepnutí na Vyfotit ukáže vodováha, srovnej bublinu do zeleného kruhu a stiskni spoušť. Jinak se rovnou otevře foťák.</div></div>
+      <div class="gstep"><span class="n">2</span><div><b>Zadej měřítko.</b> Klepni na jeden a pak druhý konec cihly (nebo dvě rysky pravítka) a pod fotkou vyber délku (cihla 290 mm, …). Bez měřítka aplikace pořád určí poměr m<sub>x</sub>/m<sub>y</sub>, jen nebude znát milimetry.</div></div>
+      <div class="gstep"><span class="n">3</span><div><b>Osa x se najde sama</b> podle ložných spár (modrá čárkovaná čára). Zkontroluj, že leží na spáře. Na omítnuté zdi, kde spáry nejsou vidět, klepni v režimu <i>Osa spáry</i> na dva body ve vodorovném směru.</div></div>
+      <div class="gstep"><span class="n">4</span><div><b>Najdi stejnolehlé body.</b> V režimu <i>Trasa trhliny</i> klepni na začátek a konec trhliny (u klikaté i na lomy) a stiskni <b>Najít stejnolehlé body</b>. Aplikace porovná tvar obou okrajů a nakreslí šipky posunu. Špatnou šipku vyber a smaž, chybějící doplň v režimu <i>Dvojice ručně</i>: klepni bod A na levé (spodní) části, pak tentýž bod B na druhé straně trhliny. Potřeba jsou aspoň 3 dvojice po celé délce.</div></div>
+      <div class="gstep"><span class="n">5</span><div><b>Přečti výsledek</b> v rámečku Vyhodnocení, napiš označení trhliny (např. „T1 severní štít“) a dej <b>Uložit měření</b>. Text do zprávy zkopíruješ tlačítkem <i>Kopírovat protokol</i>.</div></div>
+    </div>
+
+    <div class="gsec"><h3>Ovládání fotky</h3>
+      <ul>
+        <li><b>Jedním prstem tah</b> = posun fotky, <b>dvěma prsty</b> = přiblížení (nebo tlačítka + / − vpravo nahoře, ⊡ = celá fotka).</li>
+        <li><b>Klepnutí na existující bod</b> ho vybere. Pod fotkou se objeví šipky na posun po 1 pixelu, ⌖ pro přiblížení na bod a Smazat.</li>
+        <li>Klepnutí na řádek v tabulce dvojic na danou dvojici přiblíží.</li>
+        <li>Barvy: <span class="lg" style="background:var(--a)"></span>bod A, <span class="lg" style="background:var(--b)"></span>bod B, <span class="lg" style="background:var(--accent)"></span>vektor posunu a měřítko, <span class="lg" style="background:var(--cyan)"></span>osa spáry, <span class="lg" style="background:var(--path)"></span>trasa trhliny.</li>
+      </ul></div>
+
+    <div class="gsec"><h3>Jak číst výsledek</h3>
+      <ul>
+        <li><b style="color:var(--good)">Zelená – převažuje vodorovná složka</b> (Σ|m<sub>x</sub>| ≥ 1,25 × Σ|m<sub>y</sub>| a m<sub>x</sub> ≥ m<sub>y</sub> aspoň u 3/4 dvojic, bez otáčení): vhodné vodorovné sepnutí / dodatečné předpětí. Typické rozestupování dává poměr 8–10.</li>
+        <li><b style="color:var(--warn)">Oranžová – vodorovná převažuje, ale části se otáčejí</b>, nebo jsou složky srovnatelné: pravděpodobně dílčí pokles základů. Samotné sepnutí by bylo mylné (skripta obr. 4.2).</li>
+        <li><b style="color:var(--crit)">Červená – převažuje svislá složka</b>: pokles podzákladí, řešit založení (podchycení, piloty).</li>
+        <li><b>Shoda</b> u automaticky nalezených dvojic = jak dobře k sobě okraje po posunu pasují. Pod ~50 % dvojici zkontroluj.</li>
+      </ul></div>
+
+    <div class="gsec"><h3>Opakované měření (je trhlina aktivní?)</h3>
+      <p>Ulož měření pod stejným označením trhliny a po několika týdnech nebo měsících změř znovu. Od druhého měření se ukáže graf šířky a hodnocení: nárůst = aktivní trhlina, kolísání = teplota a vlhkost. Pro přesné porovnání si na zeď udělej <b>pevné značky</b> (terčíky, hřebíčky) po obou stranách trhliny a foť je pokaždé stejně. Měření jsou uložená jen v tomto telefonu. Přenos jinam přes <i>Záloha → Kopírovat zálohu</i>.</p></div>
+
+    <div class="gsec"><h3>Tipy pro focení</h3>
+      <ul>
+        <li>Kolmo na zeď: ložné spáry rovnoběžné s okrajem záběru, cihly nejsou na jedné straně menší než na druhé.</li>
+        <li>Měřítko ve stejné rovině jako trhlina, ne na parapetu před zdí.</li>
+        <li>Rozptýlené světlo, bez ostrého stínu přes trhlinu. Blesk spíš ne.</li>
+        <li>Úzké trhliny (pod 1 mm) foť zblízka, aby na šířku trhliny připadlo aspoň 5 pixelů.</li>
+      </ul></div>
+
+    <details class="gsec"><summary><b>Metodika podrobně</b></summary>
+      <ol class="small" style="margin-top:8px">
+        <li><b>Rozklad posuvu</b>: vektor A→B mezi stejnolehlými body (tentýž lom okraje na obou stranách trhliny) se rozloží na složku m<sub>x</sub> rovnoběžnou se základovou (ložnou) spárou a m<sub>y</sub> kolmo na ni. Platí-li empiricky m<sub>x</sub> ≥ m<sub>y</sub> přibližně po celé délce trhliny, jde o převažující vodorovné odsouvání a svislou složku lze při zesilování vodorovným předpětím zanedbat.</li>
+        <li><b>Osa x ze spár</b>: aplikace natáčí průmět jasu fotky a hledá úhel, ve kterém jsou ložné spáry v průmětu nejostřejší (dlouhé rovnoběžné přímky). Přesnost na zřetelném zdivu řádově setiny stupně. Je-li k dispozici i vodováha, ukáže se sklon spár vůči skutečné vodorovině, což je samo o sobě indikátor pootočení části zdiva.</li>
+        <li><b>Automatické body</b>: trasa po tmavé linii, extrakce obou okrajů kolmo na trasu, v oknech po délce trhliny hledání posunu, při kterém levý okraj nejlépe padne na pravý. Uzavřené úseky a rovné úseky bez lomu se vynechají (posun podél rovné hrany nelze určit). Odlehlé výsledky nesouhlasící se sousedy se vyřadí.</li>
+        <li><b>Kinematický rozbor</b>: posuvy všech dvojic se proloží modelem tuhého tělesa (posun + pootočení). Významná rotace (ρ &gt; 0,5) nebo změna znaménka m<sub>x</sub> po délce trhliny znamená otáčení částí kolem středů otáčení vlivem dílčích poklesů. Pak je nutné zvýšit svislou tuhost a zamezit dalšímu poklesu, ne jen sepnout.</li>
+      </ol></details>
+
+    <p class="small muted">Nástroj je pomůckou pro rozhodnutí statika, nenahrazuje stavebně-technický průzkum ani dlouhodobé sledování trhlin. Přesnost závisí na kolmosti snímku, rozlišení a správné identifikaci stejnolehlých bodů.</p>
+  </div>
 </div>
 <div class="toast" id="toast" role="status"></div>
 
@@ -426,7 +503,7 @@ function compute(){
 }
 
 /* ---------- render ---------- */
-function update(){ R=compute(); draw(); renderPanel(); renderNudge(); renderHist(); renderProto(); saveState(); }
+function update(){ R=compute(); draw(); renderPanel(); renderNudge(); renderHist(); renderProto(); renderFlow(); saveState(); }
 
 function draw(){ ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,CW,CH);
   const paper=css('--paper'), ink=css('--ink'), muted=css('--muted');
@@ -483,7 +560,7 @@ function renderPanel(){
   const r=R;
   $('#scaleStatus').innerHTML = r.hasScale ? `Měřítko: <b>${fmt(r.k,4)} mm/px</b> (${fmt(hyp(S.scale.p1,S.scale.p2),1)} px = ${fmt(S.scale.len,0)} mm)` : 'Měřítko <b>nezadáno</b> – posuvy v px; poměr m<sub>x</sub>/m<sub>y</sub> je i tak platný.';
   $('#axisStatus').innerHTML = axisText(r,true);
-  $('#jointStatus').textContent = S.joints ? `spáry: ${fmt(S.joints.alpha,2)}°, ostrost ${fmt(S.joints.sharp,1)}×${S.joints.conf<0.3?' – nezřetelné':''}` : '';
+  $('#jointStatus').textContent = S.jointBusy ? 'hledám ložné spáry…' : S.joints ? `spáry: ${fmt(S.joints.alpha,2)}°, ostrost ${fmt(S.joints.sharp,1)}×${S.joints.conf<0.3?' – nezřetelné':''}` : '';
   const tb=$('#pairs tbody'); tb.innerHTML='';
   r.rows.forEach(row=>{ const tr=document.createElement('tr'); if(S.sel&&S.sel.type==='pair'&&S.sel.idx===row.i) tr.className='sel';
     const q=S.pairs[row.i].q; tr.innerHTML=`<td>${row.i+1}</td><td>${fmt(row.mx,2)}</td><td>${fmt(row.my,2)}</td><td>${fmt(row.w,2)}</td><td>${row.ratio===Infinity?'∞':fmt(row.ratio,1)}</td><td>${q!=null?fmt(q*100,0)+' %':'ručně'}</td><td class="del"><button type="button" aria-label="Smazat dvojici">×</button></td>`;
@@ -737,8 +814,8 @@ function detectJoints(){ const G=grayImg(); const f=Math.max(1,Math.ceil(Math.ma
 function setAxisAngle(deg){ const t=deg*Math.PI/180, hx=Math.cos(t), hy=Math.sin(t); const cx=S.iw/2, cy=S.ih/2, L=S.iw*0.3; S.axis={p1:{x:cx-hx*L,y:cy-hy*L},p2:{x:cx+hx*L,y:cy+hy*L}}; }
 function levelAngle(lv){ const n=Math.hypot(lv.gx,lv.gy)||1; return Math.atan2(lv.gx/n,lv.gy/n)*180/Math.PI; } // skutečná vodorovina v obraze [°], y dolů
 function autoAxis(lv){ if(lv&&lv.have){ S.axisLevel={roll:lv.roll,pitch:lv.pitch,horiz:levelAngle(lv)}; if(Math.abs(lv.pitch)>3) toast(`Snímek není kolmý (náklon ${lv.pitch.toFixed(1)}°) – svislé rozměry jsou zkreslené`); }
-  $('#jointStatus').textContent='hledám ložné spáry…';
-  setTimeout(()=>{ let J=null; try{ J=detectJoints(); }catch(e){} S.joints=J;
+  S.jointBusy=true; $('#jointStatus').textContent='hledám ložné spáry…';
+  setTimeout(()=>{ let J=null; try{ J=detectJoints(); }catch(e){} S.joints=J; S.jointBusy=false;
     if(S.axisSrc==='manual'){ update(); return; }
     if(J&&J.conf>=0.3){ setAxisAngle(J.alpha); S.axisSrc='joints'; }
     else if(S.axisLevel){ setAxisAngle(S.axisLevel.horiz); S.axisSrc='level'; }
@@ -762,6 +839,41 @@ const SENS=window.isSecureContext&&('DeviceMotionEvent' in window)&&!(document.f
 if(!SENS){ $('#photoBtn').hidden=true; $('#photoLbl').hidden=false; } // bez senzorů (lokální soubor, artefakt): rovnou foťák, osa ze spár
 $('#photoBtn').onclick=camOpen; $('#camLive').onclick=camLive; $('#camClose').onclick=camClose; $('#camShot').onclick=camShot;
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&cam.on) camClose(); });
+
+/* ---------- lišta postupu + návod ---------- */
+function takePhoto(){ if(SENS) camOpen(); else $('#file0').click(); }
+const goCanvas=()=>{ try{ $('#cwrap').scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} };
+const FLOW={
+  foto:{act:takePhoto},
+  scale:{act:()=>{ setMode('scale'); goCanvas(); }},
+  axis:{act:()=>{ setMode('axis'); goCanvas(); }},
+  pairs:{act:()=>{ setMode(S.path.length>=2?'pair':'crack'); goCanvas(); }},
+  eval:{act:()=>{ try{ $('#sec-verdict').scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }}
+};
+let nextAct=null;
+function renderFlow(){ if(!R) return; const own=!!S.img&&!S.demo;
+  const done={foto:own, scale:!!(S.scale.p1&&S.scale.p2), axis:R.hasAxis, pairs:S.pairs.length>=3, eval:R.n>=2};
+  let txt,btn,act;
+  if(!own){ txt=S.demo?'<b>Teď je načtená ukázka.</b> Vyfoť vlastní trhlinu: kolmo na zeď, s celou cihlou nebo pravítkem v záběru.':'<b>Vyfoť trhlinu</b> kolmo na zeď, s celou cihlou nebo pravítkem v záběru.'; btn='📷 Vyfotit'; act=takePhoto; for(const k in done) done[k]=false; }
+  else if(!done.scale){ txt=S.scale.p1?'<b>Klepni na druhý konec</b> úsečky měřítka, pak pod fotkou vyber délku (cihla 290 mm…).':'<b>Měřítko:</b> klepni na jeden konec cihly nebo rysku pravítka.'; btn='Měřítko'; act=FLOW.scale.act; }
+  else if(!done.axis){ const searching=!!S.jointBusy; txt=searching?'Hledám ložné spáry…':(S.axis.p1?'<b>Klepni na druhý bod</b> na stejné ložné spáře.':'<b>Spáry se na fotce nenašly.</b> Klepni na dva body na jedné ložné spáře (nebo ve vodorovném směru).'); btn='Osa ručně'; act=FLOW.axis.act; }
+  else if(!done.pairs){
+    if(S.mode==='pair'||S.pairs.length>0&&S.auto){ txt=`<b>Dvojice ${S.pairs.length}/3.</b> Klepni bod A na levé (spodní) části trhliny, pak tentýž bod B na druhé straně.`; btn='Dvojice ručně'; act=()=>{ setMode('pair'); goCanvas(); }; }
+    else if(S.path.length===1){ txt='<b>Klepni na konec trhliny</b> (u klikaté nejdřív na lomy cestou).'; btn='Trasa trhliny'; act=()=>{ setMode('crack'); goCanvas(); }; }
+    else if(S.path.length<2){ txt='<b>Označ trhlinu:</b> klepni na její začátek a konec (u klikaté i na lomy). Pak aplikace najde body sama.'; btn='Trasa trhliny'; act=()=>{ setMode('crack'); goCanvas(); }; }
+    else { txt='<b>Trasa je označená.</b> Spusť hledání stejnolehlých bodů.'; btn='⌕ Najít body'; act=()=>{ autoFind(); goCanvas(); }; } }
+  else { const h=$('#verdict h3'); txt=`<b>Hotovo:</b> ${h?h.textContent:''}. Pojmenuj trhlinu a ulož měření.`; btn='Výsledek ↓'; act=FLOW.eval.act; }
+  const order=['foto','scale','axis','pairs','eval']; const firstOpen=order.find(k=>!done[k]);
+  document.querySelectorAll('#flow button').forEach(b=>{ const k=b.dataset.step; let st=done[k]?'done':(k===firstOpen?'next':'todo'); if(k==='pairs'&&own&&!done.pairs&&S.pairs.length) st=(k===firstOpen?'next':'part'); b.dataset.st=st; });
+  $('#nextTxt').innerHTML=txt; $('#nextBtn').textContent=btn; nextAct=act; }
+$('#nextBtn').onclick=()=>{ if(nextAct) nextAct(); };
+document.querySelectorAll('#flow button').forEach(b=>b.onclick=()=>FLOW[b.dataset.step].act());
+function openGuide(){ $('#guide').hidden=false; $('#guide').scrollTop=0; $('#guideClose').focus(); }
+function closeGuide(){ $('#guide').hidden=true; try{ localStorage.setItem('trhlina.guide','1'); }catch(e){} }
+$('#helpBtn').onclick=openGuide; $('#helpBtn2').onclick=openGuide; $('#guideClose').onclick=closeGuide;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('#guide').hidden) closeGuide(); });
+let seenGuide=false; try{ seenGuide=!!localStorage.getItem('trhlina.guide'); }catch(e){ seenGuide=true; }
+if(!seenGuide) openGuide();
 
 /* ---------- start ---------- */
 new ResizeObserver(resize).observe(wrap); resize();

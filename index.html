@@ -169,6 +169,16 @@ ol.steps li{margin-bottom:5px}
 .hist .rec .m{font:12px var(--f-mono);color:var(--muted)}
 .hist img{width:72px;height:48px;object-fit:cover;border:1px solid var(--rule);grid-row:span 2}
 .hist .rec{grid-template-columns:auto 1fr auto}
+.objcv-wrap{border:1px solid var(--rule);background:var(--paper);margin-top:8px}
+.objcv-wrap canvas{display:block;width:100%;touch-action:manipulation;cursor:crosshair}
+.objlist{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.objlist .oc{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;align-items:center;border:1px solid var(--rule);padding:6px 8px;font-size:12.5px}
+.objlist .oc.sel{border-color:var(--accent);background:var(--warn-bg)}
+.objlist .oc .ctl{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;grid-column:1/-1}
+.objlist .oc input[type=number]{width:70px;padding:5px 6px}
+.objlist .oc button{padding:5px 8px;font-size:12px}
+.objlist .oc .m{font:12px var(--f-mono);color:var(--muted)}
+#objAdd{font:13px var(--f-ui);color:var(--ink);background:var(--field);border:1px solid var(--rule);padding:9px 10px;flex:1 1 200px;min-width:0}
 svg.spark{width:100%;height:84px;display:block;max-width:100%}
 .camov{position:fixed;inset:0;background:#10151c;z-index:50;display:flex;flex-direction:column}
 .camov video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
@@ -289,6 +299,28 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
       <p class="small muted" style="margin:8px 0 0">Záznamy se ukládají jen v tomto prohlížeči. Pro porovnání v čase měřte vždy tytéž dvojice bodů (fixní značky na zdivu) a foťte kolmo ze stejné vzdálenosti. Aktivní trhlina = zřetelný nárůst šířky; periodický průběh = teplotní vliv.</p>
     </section>
 
+    <section class="card" id="sec-obj">
+      <h2>Kinematika objektu (více trhlin)</h2>
+      <p class="small muted" style="margin:0 0 8px">Náčrt stěny v pohledu <b>ze strany, odkud byly trhliny foceny</b>. Bloky zdiva mezi trhlinami se berou jako tuhá tělesa; z vektorů posunů uložených trhlin se spočítá pootočení každého bloku, středy otáčení a profil poklesu základu (obr. 4.2). Levý blok je referenční.</p>
+      <div class="row">
+        <input type="text" id="objName" list="objNames" placeholder="Stěna / objekt, např. RD Choceň – severní stěna" style="flex:1 1 200px">
+        <datalist id="objNames"></datalist>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label class="small" for="objL">délka L</label><input type="number" id="objL" min="1" step="0.1" value="12" style="width:76px"><span class="mono small">m</span>
+        <label class="small" for="objH">výška H</label><input type="number" id="objH" min="0.5" step="0.1" value="6" style="width:76px"><span class="mono small">m</span>
+        <button type="button" class="ghost danger" id="objDel">Smazat objekt</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <select id="objAdd" aria-label="Přidat uloženou trhlinu"><option value="">+ přidat uloženou trhlinu…</option></select>
+      </div>
+      <p class="status" id="objStatus" style="margin:6px 0 0"></p>
+      <div class="objcv-wrap"><canvas id="objCv" aria-label="Náčrt stěny s trhlinami a deformovanými bloky"></canvas></div>
+      <div class="verdict" id="objVerdict" data-level="neutral" style="margin-top:8px"></div>
+      <div class="objlist" id="objList"></div>
+      <div class="tw" style="margin-top:8px"><table id="objTbl"><thead></thead><tbody></tbody></table></div>
+    </section>
+
     <section class="card" id="sec-proto">
       <h2>Protokol</h2>
       <div class="pfields">
@@ -357,6 +389,9 @@ svg.spark{width:100%;height:84px;display:block;max-width:100%}
         <li><b style="color:var(--crit)">Červená – převažuje svislá složka</b>: pokles podzákladí, řešit založení (podchycení, piloty).</li>
         <li><b>Shoda</b> u automaticky nalezených dvojic = jak dobře k sobě okraje po posunu pasují. Pod ~50 % dvojici zkontroluj.</li>
       </ul></div>
+
+    <div class="gsec"><h3>Kinematika objektu (více trhlin)</h3>
+      <p>Jedna trhlina řekne, jak se vůči sobě hýbou dvě části zdiva. Teprve více trhlin na jedné stěně ukáže, <b>která část budovy klesá</b>. V sekci <i>Kinematika objektu</i> zadej délku a výšku stěny, z nabídky přidej uložené trhliny a klepnutím do náčrtu je umísti tam, kde na stěně jsou (bod = místo měřených dvojic). Náčrt kresli v pohledu ze strany, odkud jsi fotil; pokud byla červená část A na stěně vpravo, přepni to u trhliny. Aplikace nakreslí zvětšeně posunuté bloky, středy otáčení (⊕) a profil relativního poklesu základu, a rozhodne mezi rovnoběžným rozestupováním (sepnutí) a otáčením částí kolem základů (pokles → založení). Objektů může být víc, přepínají se názvem.</p></div>
 
     <div class="gsec"><h3>Opakované měření (je trhlina aktivní?)</h3>
       <p>Ulož měření pod stejným označením trhliny a po několika týdnech nebo měsících změř znovu. Od druhého měření se ukáže graf šířky a hodnocení: nárůst = aktivní trhlina, kolísání = teplota a vlhkost. Pro přesné porovnání si na zeď udělej <b>pevné značky</b> (terčíky, hřebíčky) po obou stranách trhliny a foť je pokaždé stejně. Měření jsou uložená jen v tomto telefonu. Přenos jinam přes <i>Záloha → Kopírovat zálohu</i>.</p></div>
@@ -498,7 +533,7 @@ function compute(){
     rows.forEach(r=>{ const rx=r.X-Xc, ry=r.Y-Yc; num+=rx*r.my-ry*r.mx; den+=rx*rx+ry*ry; Rmax=Math.max(Rmax,Math.hypot(rx,ry)); });
     const th=den>1e-9?num/den:0; const tx=res.mxMean, ty=res.myMean; const T=Math.hypot(tx,ty);
     let rss=0; rows.forEach(r=>{ const rx=r.X-Xc, ry=r.Y-Yc; const ex=r.mx-(tx-th*ry), ey=r.my-(ty+th*rx); rss+=ex*ex+ey*ey; });
-    res.kin={theta:th,tx,ty,T,Rmax,rho:T>1e-9?Math.abs(th)*Rmax/T:(Math.abs(th)>0?Infinity:0),rms:Math.sqrt(rss/n),span:Rmax*2};
+    const rmsv=Math.sqrt(rss/n); res.kin={theta:th,tx,ty,T,Rmax,rho:T>1e-9?Math.abs(th)*Rmax/T:(Math.abs(th)>0?Infinity:0),rms:rmsv,span:Rmax*2,sth:den>1e-9?Math.max(rmsv/Math.SQRT2,k?0.35*k:0.35)/Math.sqrt(den):Infinity};
     if(Math.abs(th)>1e-9){ const cx=Xc-ty/th, cy=Yc+tx/th; res.kin.center={X:cx,Y:cy,px:{x:(cx*u.x+cy*v.x)/kk,y:(cx*u.y+cy*v.y)/kk}}; }
     const tol=k?0.3:1; const pos=rows.some(r=>r.mx>tol), neg=rows.some(r=>r.mx<-tol); res.signChange=pos&&neg;
     res.rotFlag=(n>=3&&res.kin.rho>0.5)||res.signChange;
@@ -599,7 +634,7 @@ function renderPanel(){
   const kin=r.kin; if(!kin){ $('#kin').innerHTML=''; return; }
   const mrad=kin.theta*1000; let c='';
   if(kin.center){ const C=kin.center; const dxc=C.X-r.rows.reduce((s,x)=>s+x.X,0)/r.n, dyc=C.Y-r.rows.reduce((s,x)=>s+x.Y,0)/r.n; c=` Střed otáčení přibližně ${fmt(Math.abs(dxc),0)} ${u} ${dxc<0?'vlevo':'vpravo'} a ${fmt(Math.abs(dyc),0)} ${u} ${dyc<0?'pod':'nad'} těžištěm měřených bodů.`; }
-  $('#kin').innerHTML=`<b>Kinematický rozbor</b> (fit tuhého tělesa, ${r.n} dvojic): translace ${fmt(kin.tx,1)} / ${fmt(kin.ty,1)} ${u}, rotace ${fmt(mrad,2)} mrad, podíl rotace na rozpětí bodů ρ = ${kin.rho===Infinity?'∞':fmt(kin.rho,2)} ${r.rotFlag?'<span style="color:var(--warn)">→ významné otáčení</span>':'→ převážně translace'}${r.signChange?', <span style="color:var(--warn)">znaménko m<sub>x</sub> se po délce mění</span>':''}. Reziduum fitu ${fmt(kin.rms,2)} ${u}.${c}${r.n<3?' <span class="muted">Pro spolehlivou kinematiku doplňte na 3 a více dvojic.</span>':''}`;
+  $('#kin').innerHTML=`<b>Kinematický rozbor</b> (fit tuhého tělesa, ${r.n} dvojic): translace ${fmt(kin.tx,1)} / ${fmt(kin.ty,1)} ${u}, rotace ${fmt(mrad,2)}${kin.sth<Infinity?' ± '+fmt(kin.sth*1000,2):''} mrad, podíl rotace na rozpětí bodů ρ = ${kin.rho===Infinity?'∞':fmt(kin.rho,2)} ${r.rotFlag?'<span style="color:var(--warn)">→ významné otáčení</span>':'→ převážně translace'}${r.signChange?', <span style="color:var(--warn)">znaménko m<sub>x</sub> se po délce mění</span>':''}. Reziduum fitu ${fmt(kin.rms,2)} ${u}.${c}${r.n<3?' <span class="muted">Pro spolehlivou kinematiku doplňte na 3 a více dvojic.</span>':''}`;
 }
 
 /* ---------- protokol ---------- */
@@ -609,12 +644,107 @@ function renderProto(){ const r=R; const d=new Date(); const L=[];
   L.push(`Dvojice   mx [${r.unit}]   my [${r.unit}]   šířka [${r.unit}]   |mx|/|my|`);
   r.rows.forEach(x=>L.push(`${String(x.i+1).padStart(4)}     ${fmt(x.mx,2).padStart(8)}   ${fmt(x.my,2).padStart(8)}   ${fmt(x.w,2).padStart(10)}   ${(x.ratio===Infinity?'∞':fmt(x.ratio,1)).padStart(8)}`));
   if(r.n){ L.push(''); L.push(`Σ|mx| / Σ|my| = ${r.R===Infinity?'∞':fmt(r.R,2)};  mx ≥ my splněno u ${r.share} z ${r.n} dvojic;  šířka ø ${fmt(r.wMean,2)} / max ${fmt(r.wMax,2)} ${r.unit}`);
-    if(r.kin) L.push(`Kinematika (tuhé těleso): translace ${fmt(r.kin.tx,2)} / ${fmt(r.kin.ty,2)} ${r.unit}, rotace ${fmt(r.kin.theta*1000,3)} mrad, ρ = ${r.kin.rho===Infinity?'∞':fmt(r.kin.rho,2)}${r.rotFlag?' – významné otáčení částí':' – převážně translace'}${r.signChange?', změna znaménka mx po délce':''}`);
+    if(r.kin) L.push(`Kinematika (tuhé těleso): translace ${fmt(r.kin.tx,2)} / ${fmt(r.kin.ty,2)} ${r.unit}, rotace ${fmt(r.kin.theta*1000,3)}${r.kin.sth<Infinity?' ± '+fmt(r.kin.sth*1000,3):''} mrad, ρ = ${r.kin.rho===Infinity?'∞':fmt(r.kin.rho,2)}${r.rotFlag?' – významné otáčení částí':' – převážně translace'}${r.signChange?', změna znaménka mx po délce':''}`);
     L.push(''); L.push('ZÁVĚR: '+$('#verdict h3').textContent); L.push($('#verdict p').textContent.replace(/\s+/g,' ')); }
   L.push(''); L.push('Metodika: empirické kritérium mx ≥ my po délce trhliny → převaha vodorovného odsouvání → vhodné vodorovné sepnutí; převaha my → pokles podzákladí → založení. Doplněno kinematickým rozborem (obr. 4.2). Výsledek je podkladem pro rozhodnutí statika, nikoli jeho náhradou.');
   $('#proto').value=L.join('\n'); }
 const copy=async (t,ok,ta)=>{ try{ await navigator.clipboard.writeText(t); toast(ok); }catch(e){ ta.hidden=false; ta.value=t; ta.focus(); ta.select(); toast('Text označen – zkopírujte ručně'); } };
 $('#copyProto').onclick=()=>copy($('#proto').value,'Protokol zkopírován',$('#proto'));
+
+/* ---------- kinematika objektu: tuhé bloky mezi trhlinami ---------- */
+const LS_OBJ='trhlina.obj.v1', DEMO_NAME='Ukázka – štítová stěna';
+const OBJ={cur:'',data:{},demo:true,pick:-1,demoObj:{L:12,H:6.5,cracks:[
+  {name:'Ukázka T1',x:4.2,y:3.2,aLeft:true,snap:{tx:3.1,ty:-0.6,theta:0.00035,sth:0.0004,R:5.2,code:'H',w:3.2}},
+  {name:'Ukázka T2',x:8.4,y:3.0,aLeft:true,snap:{tx:2.4,ty:-5.8,theta:-0.0014,sth:0.0003,R:0.4,code:'V',w:6.3}}]}};
+function loadObjs(){ try{ OBJ.data=JSON.parse(localStorage.getItem(LS_OBJ)||'{}')||{}; OBJ.cur=localStorage.getItem('trhlina.obj.cur')||''; }catch(e){ OBJ.data={}; OBJ.cur=''; } if(!OBJ.data[OBJ.cur]) OBJ.cur=Object.keys(OBJ.data)[0]||''; OBJ.demo=!OBJ.cur; }
+function storeObjs(){ try{ localStorage.setItem(LS_OBJ,JSON.stringify(OBJ.data)); localStorage.setItem('trhlina.obj.cur',OBJ.cur); }catch(e){} }
+function curObj(){ return OBJ.demo?OBJ.demoObj:OBJ.data[OBJ.cur]; }
+function crackKin(c){ const recs=(loadHist()[c.name]||[]).filter(r=>r.kin&&r.unit==='mm').sort((a,b)=>b.t-a.t); if(recs.length){ const r=recs[0]; return {tx:r.kin.tx,ty:r.kin.ty,theta:r.kin.theta,sth:r.kin.sth,R:r.R,code:r.code,w:r.w,t:r.t,fresh:true}; } return c.snap?{...c.snap,fresh:false}:null; }
+// Model: trhlina i mezi blokem k a k+1 dává relativní posun d = t + θ·ẑ×(P−Pc) (z fitu tuhého tělesa, mm, x podél spáry, y nahoru).
+// Vůči počátku náčrtu (levý dolní roh, mm): ΔT = t − θ·ẑ×Pc. Blok k: θ_k = Σ Δθ, T_k = Σ ΔT; u_k(P) = T_k + θ_k·(−P.y, P.x).
+function objModel(o){ const L=o.L*1000, H=o.H*1000;
+  const cr=o.cracks.map((c,i)=>({...c,i,kin:crackKin(c)})).filter(c=>c.kin).sort((a,b)=>a.x-b.x);
+  const blocks=[{th:0,T:{x:0,y:0},x0:0,x1:cr.length?cr[0].x*1000:L}]; let th=0,Tx=0,Ty=0;
+  cr.forEach((c,k)=>{ const sg=c.aLeft===false?-1:1; const P={x:c.x*1000,y:c.y*1000}; const sth=c.kin.sth==null?0:c.kin.sth; c.sig=Math.abs(c.kin.theta)>2*sth; c.sth=sth; const thEff=c.sig?c.kin.theta:0; const dth=sg*thEff; th+=dth; Tx+=sg*(c.kin.tx+thEff*P.y); Ty+=sg*(c.kin.ty-thEff*P.x); c.dth=dth; c.dT={x:sg*c.kin.tx,y:sg*c.kin.ty}; c.P=P; blocks.push({th,T:{x:Tx,y:Ty},x0:P.x,x1:k+1<cr.length?cr[k+1].x*1000:L}); });
+  const u=(k,P)=>{ const b=blocks[k]; return {x:b.T.x-b.th*P.y,y:b.T.y+b.th*P.x}; };
+  blocks.forEach((b,k)=>{ b.center=Math.abs(b.th)>1e-9?{x:-b.T.y/b.th,y:b.T.x/b.th}:null; b.sL=u(k,{x:b.x0,y:0}).y; b.sR=u(k,{x:b.x1,y:0}).y; });
+  cr.forEach((c,k)=>{ const x=c.P.x; c.oBot=u(k+1,{x,y:0}).x-u(k,{x,y:0}).x; c.oTop=u(k+1,{x,y:H}).x-u(k,{x,y:H}).x; c.ds=u(k+1,{x,y:0}).y-u(k,{x,y:0}).y; c.q=Math.abs(c.dth)*H/Math.max(0.05,Math.hypot(c.dT.x,c.dT.y)); });
+  return {L,H,cr,blocks,u}; }
+function objVerdict(M){ const n=M.cr.length; if(!n) return {level:'neutral',k:'Bez umístěných trhlin',h:'Přidejte uložené trhliny a umístěte je do náčrtu',p:'Trhlina se do objektu přidá z nabídky „přidat uloženou trhlinu“ (musí být uložená s měřítkem v mm). Pak klepněte do náčrtu na místo, kde na stěně je.',l:[]};
+  const sv=M.blocks.flatMap(b=>[b.sL,b.sR]); const smin=Math.min(...sv), smax=Math.max(...sv); const dsMax=smax-smin; const xs=M.blocks.flatMap(b=>[b.x0,b.x1]); const xMin=xs[sv.indexOf(smin)]/1000, xMax=xs[sv.indexOf(smax)]/1000;
+  const avgOpen=M.cr.reduce((a,c)=>a+Math.abs((c.oBot+c.oTop)/2),0)/n; const maxTh=Math.max(...M.cr.map(c=>Math.abs(c.dth)))*1000;
+  const rotCr=M.cr.filter(c=>c.q>0.5); const wedge=M.cr.filter(c=>Math.abs(c.oTop-c.oBot)>0.3*Math.max(Math.abs(c.oTop),Math.abs(c.oBot),0.2));
+  const lowC=M.blocks.filter(b=>b.center&&b.center.y<0.5*M.H&&b.center.y>-4*M.H&&b.center.x>-M.L&&b.center.x<2*M.L);
+  const unsure=M.cr.filter(c=>!c.sig&&Math.abs(c.kin.theta)>1e-6); const uTxt=unsure.length?` Pootočení u ${unsure.map(c=>`${c.name} (${fmt(c.kin.theta*1000,2)} ± ${fmt(c.sth*1000,2)} mrad)`).join(', ')} není průkazné a v modelu je nahrazeno čistým posunem – pro jeho ověření změřte dvojice po celé výšce trhliny nebo doplňte nivelaci.`:'';
+  const f1=v=>fmt(v,1); const wTxt=wedge.length?` Klínovité trhliny: ${wedge.map(c=>`${c.name} (dole ${f1(c.oBot)} / nahoře ${f1(c.oTop)} mm)`).join(', ')}.`:'';
+  const sTxt=`Relativní rozdíl výšek základu Δs = ${f1(dsMax)} mm (nejníže u x ≈ ${f1(xMin)} m, nejvýše u x ≈ ${f1(xMax)} m; vztaženo k levému bloku).`;
+  if(rotCr.length===0&&dsMax<=0.8*Math.max(avgOpen,0.2)) return {level:'good',k:'Rovnoběžné rozestupování částí',h:'Části se posouvají bez otáčení – vhodné vodorovné sepnutí (obr. 4.3 vlevo)',p:`Pootočení bloků je zanedbatelné (max |Δθ| = ${fmt(maxTh,2)} mrad), ${sTxt} Rozevření trhlin ø ${f1(avgOpen)} mm převažuje nad rozdíly výšek – příčina je tahová (roztažnost, stropy, vazné trámy), ne pokles.${uTxt}`,l:['Sepnutí navrhnout na rozhodující tahovou sílu po celé délce stěny.','Doplnit nivelaci základů pro potvrzení (Δs by měla být v řádu chyby měření).']};
+  if((rotCr.length&&(lowC.length||dsMax>0.8*avgOpen))||dsMax>1.25*Math.max(avgOpen,0.2)) return {level:'crit',k:'Otáčení částí kolem středů v úrovni základů',h:'Dílčí pokles podzákladí – nejprve zajistit založení (obr. 4.2)',p:`Bloky se pootáčejí (max |Δθ| = ${fmt(maxTh,2)} mrad), ${rotCr.length?'u trhlin '+rotCr.map(c=>c.name).join(', ')+' převažuje rotace nad posunem.':''}${wTxt} ${sTxt} Samotné vodorovné sepnutí bez zvýšení svislé tuhosti by bylo mylné.${uTxt}`,l:[`Zajištění základů v úseku kolem x ≈ ${f1(xMin)} m (podchycení, mikropiloty, injektáž), teprve potom případné sepnutí.`,'Ověřit příčinu poklesu: voda, smršťování zemin, přetížení, výkop u základu.','Doplnit nivelaci a sledování v čase – aktivní pokles mění návrh.']};
+  return {level:'warn',k:'Smíšený mechanismus',h:'Otáčení i rozestupování – doplnit další trhliny a nivelaci',p:`Max |Δθ| = ${fmt(maxTh,2)} mrad, ${sTxt}${wTxt} Rozevření ø ${f1(avgOpen)} mm. ${lowC.length?'':'Středy otáčení neleží v úrovni základů – nemusí jít o pokles (vyklánění, vodorovný tlak krovu, posun v základové spáře).'}${uTxt}`,l:['Přidat do náčrtu všechny trhliny stěny (i uzavřené) a změřit protější stěnu.','Rozhodnout kombinaci: zajištění základů + sepnutí.']}; }
+const objCv=$('#objCv');
+function objCanvasH(W,M){ const pad=26, sc=(W-2*pad)/M.L; return Math.round(pad+12+M.H*sc+34+64+40); }
+function drawObject(c,W,Hpx,M,o,sel){ const pad=26, sc=(W-2*pad)/M.L; const top=pad+12, base=top+M.H*sc; const X=x=>pad+x*sc, Y=y=>base-y*sc;
+  const ink=css('--ink'), muted=css('--muted'), rule=css('--rule'), paper=css('--paper'), acc=css('--accent'), cyan=css('--cyan'), good=css('--good'), warn=css('--warn'), crit=css('--crit'), pth=css('--path');
+  c.fillStyle=paper; c.fillRect(0,0,W,Hpx); c.font='11px '+css('--f-mono'); c.textBaseline='alphabetic';
+  let maxU=0.1; M.blocks.forEach((b,k)=>{ for(const P of [{x:b.x0,y:0},{x:b.x1,y:0},{x:b.x0,y:M.H},{x:b.x1,y:M.H}]){ const v=M.u(k,P); maxU=Math.max(maxU,Math.hypot(v.x,v.y)); } });
+  const ex=M.cr.length?0.06*M.L/maxU:0;
+  // původní obrys
+  c.setLineDash([4,3]); c.strokeStyle=rule; c.lineWidth=1; c.strokeRect(X(0),Y(M.H),M.L*sc,M.H*sc); c.setLineDash([]);
+  // deformované bloky
+  const tints=[acc,cyan]; M.blocks.forEach((b,k)=>{ const pts=[{x:b.x0,y:0},{x:b.x1,y:0},{x:b.x1,y:M.H},{x:b.x0,y:M.H}].map(P=>{ const v=M.u(k,P); return {x:X(P.x+ex*v.x),y:Y(P.y+ex*v.y)}; });
+    c.beginPath(); pts.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)); c.closePath(); c.globalAlpha=.16; c.fillStyle=tints[k%2]; c.fill(); c.globalAlpha=1; c.strokeStyle=ink; c.lineWidth=1.4; c.stroke();
+    const cx=(pts[0].x+pts[2].x)/2, cy=(pts[0].y+pts[3].y)*0.5; const lbl=`B${k}`+(k?` ${fmt(b.th*1000,2)} mrad`:' ref.'); if(Math.abs(pts[1].x-pts[0].x)>c.measureText(lbl).width+10){ c.fillStyle=muted; c.textAlign='center'; c.fillText(lbl,cx,cy+(pts[0].y-cy)*0.55); } });
+  // základová spára
+  c.strokeStyle=ink; c.lineWidth=2; c.beginPath(); c.moveTo(X(0)-6,Y(0)); c.lineTo(X(M.L)+6,Y(0)); c.stroke(); for(let x=X(0)-6;x<X(M.L)+6;x+=8){ c.beginPath(); c.moveTo(x,Y(0)); c.lineTo(x-5,Y(0)+6); c.stroke(); }
+  // kóty
+  c.fillStyle=muted; c.textAlign='left'; c.fillText(`L = ${fmt(o.L,1)} m`,X(0),Y(M.H)-4); c.textAlign='right'; c.fillText(`H = ${fmt(o.H,1)} m`,X(M.L),Y(M.H)-4);
+  // trhliny: čára, bod, vektor
+  M.cr.forEach((cr,k)=>{ const x=X(cr.P.x); c.strokeStyle=pth; c.lineWidth=1.5; c.setLineDash([6,4]); c.beginPath(); c.moveTo(x,Y(0)); c.lineTo(x,Y(M.H)); c.stroke(); c.setLineDash([]);
+    const px=X(cr.P.x), py=Y(cr.P.y); const isSel=sel===cr.i; c.fillStyle=isSel?acc:pth; c.beginPath(); c.arc(px,py,isSel?7:5,0,Math.PI*2); c.fill();
+    const vx=cr.dT.x*ex*sc, vy=-cr.dT.y*ex*sc; const L2=Math.hypot(vx,vy); if(L2>4){ c.strokeStyle=acc; c.fillStyle=acc; c.lineWidth=2; c.beginPath(); c.moveTo(px,py); c.lineTo(px+vx,py+vy); c.stroke(); const ux=vx/L2,uy=vy/L2; c.beginPath(); c.moveTo(px+vx,py+vy); c.lineTo(px+vx-ux*8-uy*4,py+vy-uy*8+ux*4); c.lineTo(px+vx-ux*8+uy*4,py+vy-uy*8-ux*4); c.closePath(); c.fill(); }
+    c.fillStyle=ink; c.textAlign='center'; const lw=c.measureText(cr.name).width+6; c.fillStyle=paper; c.fillRect(px-lw/2,Y(M.H)-30,lw,13); c.fillStyle=ink; c.fillText(cr.name,px,Y(M.H)-20); });
+  // středy otáčení
+  M.blocks.forEach((b,k)=>{ if(!b.center||!k) return; const C=b.center; const inside=C.x>-0.6*M.L&&C.x<1.6*M.L&&C.y>-1.2*M.H&&C.y<2.2*M.H; if(!inside) return; const px=X(C.x), py=Y(C.y); c.strokeStyle=warn; c.lineWidth=1.5; c.beginPath(); c.arc(px,py,7,0,Math.PI*2); c.moveTo(px-11,py); c.lineTo(px+11,py); c.moveTo(px,py-11); c.lineTo(px,py+11); c.stroke(); c.fillStyle=warn; c.textAlign='left'; c.fillText(`S${k}`,px+10,py-8); });
+  // profil poklesu základu
+  const py0=base+34, ph=64; const sv=M.blocks.flatMap(b=>[b.sL,b.sR]); const sabs=Math.max(0.5,...sv.map(Math.abs)); const PY=v=>py0+ph/2-(v/sabs)*(ph/2-8);
+  c.strokeStyle=rule; c.lineWidth=1; c.beginPath(); c.moveTo(X(0),PY(0)); c.lineTo(X(M.L),PY(0)); c.stroke(); 
+  M.blocks.forEach((b,k)=>{ const col=b.sL<-0.3*sabs||b.sR<-0.3*sabs?crit:(Math.abs(b.sL)<0.3*sabs&&Math.abs(b.sR)<0.3*sabs?good:warn); c.strokeStyle=col; c.lineWidth=2.5; c.beginPath(); c.moveTo(X(b.x0),PY(b.sL)); c.lineTo(X(b.x1),PY(b.sR)); c.stroke(); c.fillStyle=col; c.beginPath(); c.arc(X(b.x0),PY(b.sL),2.5,0,7); c.arc(X(b.x1),PY(b.sR),2.5,0,7); c.fill(); if(k){ c.fillStyle=ink; c.textAlign='left'; c.fillText(fmt(b.sL,1),X(b.x0)+4,PY(b.sL)-5); } if(k===M.blocks.length-1){ c.textAlign='right'; c.fillText(fmt(b.sR,1),X(b.x1)-2,PY(b.sR)+12); } });
+  c.fillStyle=muted; c.textAlign='left'; c.fillText('relativní pokles základu [mm] vůči bloku B0',X(0),Hpx-18); c.textAlign='right'; c.fillText(M.cr.length?`posuny zvětšeny ${fmt(ex,0)}×`:'', W-pad, Hpx-5); c.textAlign='left'; }
+function renderObj(){ loadObjsOnce(); const o=curObj(); const nameEl=$('#objName'); if(document.activeElement!==nameEl) nameEl.value=OBJ.demo?DEMO_NAME:OBJ.cur;
+  $('#objNames').innerHTML=Object.keys(OBJ.data).map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+  if(document.activeElement!==$('#objL')) $('#objL').value=o.L; if(document.activeElement!==$('#objH')) $('#objH').value=o.H;
+  // nabídka trhlin k přidání
+  const h=loadHist(); const used=new Set(o.cracks.map(c=>c.name)); const avail=Object.keys(h).filter(n=>!used.has(n)&&h[n].some(r=>r.kin&&r.unit==='mm')); const noKin=Object.keys(h).filter(n=>!used.has(n)&&!h[n].some(r=>r.kin&&r.unit==='mm'));
+  $('#objAdd').innerHTML='<option value="">+ přidat uloženou trhlinu…</option>'+avail.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('')+noKin.map(n=>`<option value="" disabled>${n} – bez měřítka v mm, změřte znovu</option>`).join('');
+  const M=objModel(o); const V=objVerdict(M); const VE=$('#objVerdict'); VE.dataset.level=V.level; VE.innerHTML=`<div class="kicker">${V.k}${OBJ.demo?' · UKÁZKA':''}</div><h3>${V.h}</h3><p>${V.p}</p>${V.l.length?'<ul>'+V.l.map(x=>`<li>${x}</li>`).join('')+'</ul>':''}`;
+  const st=$('#objStatus'); st.textContent=OBJ.pick>=0?`Klepněte do náčrtu, kde na stěně je trhlina „${o.cracks[OBJ.pick].name}“.`:(OBJ.demo?'Ukázková stěna se dvěma trhlinami. Zadejte název vlastní stěny a přidejte uložené trhliny.':(o.cracks.length?'Klepnutím na bod trhliny ji vyberete, dalším klepnutím přemístíte.':'Přidejte trhlinu z nabídky.'));
+  // plátno
+  const W=Math.max(280,objCv.parentElement.clientWidth||320); const Hpx=objCanvasH(W,M); const dpr=devicePixelRatio||1; objCv.width=Math.round(W*dpr); objCv.height=Math.round(Hpx*dpr); objCv.style.height=Hpx+'px'; const c=objCv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); drawObject(c,W,Hpx,M,o,OBJ.pick>=0?OBJ.pick:-1);
+  // seznam trhlin
+  const Lst=$('#objList'); Lst.innerHTML=''; o.cracks.forEach((cr,i)=>{ const kin=crackKin(cr); const e=document.createElement('div'); e.className='oc'+(OBJ.pick===i?' sel':''); const codes={H:'vodorovný',HR:'vodorovný+rotace',U:'nejednoznačný',V:'svislý'};
+    e.innerHTML=`<div><b>${cr.name}</b><div class="m">${kin?`t = ${fmt(kin.tx,1)} / ${fmt(kin.ty,1)} mm · θ = ${fmt(kin.theta*1000,2)}${kin.sth!=null?' ± '+fmt(kin.sth*1000,2):''} mrad · samostatně: ${codes[kin.code]||'–'}${kin.fresh===false?' · (uložený snímek)':''}`:'bez kinematiky – změřte s měřítkem a uložte'}</div></div><button type="button" class="ghost danger" aria-label="Odebrat">×</button>
+      <div class="ctl"><label class="small">x</label><input type="number" step="0.1" value="${fmt(cr.x,1).replace(',','.')}" data-k="x"><label class="small">y</label><input type="number" step="0.1" value="${fmt(cr.y,1).replace(',','.')}" data-k="y"><span class="small mono">m</span><button type="button" data-act="place">⌖ umístit klepnutím</button><label class="small" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-k="aLeft" ${cr.aLeft!==false?'checked':''}>část A vlevo</label></div>`;
+    e.querySelector('button.danger').onclick=()=>{ objEdit(); o.cracks.splice(i,1); OBJ.pick=-1; objSave(); };
+    e.querySelector('[data-act=place]').onclick=()=>{ OBJ.pick=OBJ.pick===i?-1:i; renderObj(); try{ objCv.scrollIntoView({behavior:'smooth',block:'center'}); }catch(err){} };
+    e.querySelectorAll('input').forEach(inp=>inp.onchange=()=>{ objEdit(); const k=inp.dataset.k; if(k==='aLeft') cr.aLeft=inp.checked; else cr[k]=Math.max(0,Math.min(k==='x'?o.L:o.H,parseFloat(inp.value)||0)); objSave(); });
+    Lst.appendChild(e); });
+  // tabulka
+  const T=$('#objTbl'); if(!M.cr.length){ T.querySelector('thead').innerHTML=''; T.querySelector('tbody').innerHTML=''; return; }
+  T.querySelector('thead').innerHTML='<tr><th>trhlina</th><th>x [m]</th><th>Δθ [mrad]</th><th>rozevření dole / nahoře [mm]</th><th>Δs [mm]</th><th>rotace/posun</th></tr>';
+  T.querySelector('tbody').innerHTML=M.cr.map(cr=>`<tr><td>${cr.name}</td><td>${fmt(cr.x,1)}</td><td>${cr.sig?fmt(cr.dth*1000,2):'0 ('+fmt(cr.kin.theta*1000,2)+' ± '+fmt(cr.sth*1000,2)+')'}</td><td>${fmt(cr.oBot,1)} / ${fmt(cr.oTop,1)}</td><td>${fmt(cr.ds,1)}</td><td>${fmt(cr.q,2)}${cr.q>0.5?' ⚠':''}</td></tr>`).join('')+M.blocks.map((b,k)=>k?`<tr><td colspan="6" class="small muted" style="text-align:left;white-space:normal">blok ${k}: θ = ${fmt(b.th*1000,2)} mrad, pokles základu ${fmt(b.sL,1)} → ${fmt(b.sR,1)} mm${b.center?`, střed otáčení S${k} = (${fmt(b.center.x/1000,1)}; ${fmt(b.center.y/1000,1)}) m`:''}</td></tr>`:'').join('');
+  T.querySelectorAll('tbody tr').forEach(tr=>tr.style.cursor='default'); }
+let objLoaded=false; function loadObjsOnce(){ if(!objLoaded){ loadObjs(); objLoaded=true; } }
+function objEdit(){ if(OBJ.demo){ const nm=($('#objName').value||'').trim(); const name=nm&&nm!==DEMO_NAME?nm:'Stěna 1'; OBJ.data[name]={L:parseFloat($('#objL').value)||12,H:parseFloat($('#objH').value)||6,cracks:[]}; OBJ.cur=name; OBJ.demo=false; } }
+function objSave(){ storeObjs(); renderObj(); }
+$('#objName').onchange=e=>{ const nm=e.target.value.trim(); if(!nm||nm===DEMO_NAME){ loadObjs(); renderObj(); return; } if(!OBJ.data[nm]){ const o=curObj(); OBJ.data[nm]={L:o.L,H:o.H,cracks:OBJ.demo?[]:[]}; } OBJ.cur=nm; OBJ.demo=false; OBJ.pick=-1; objSave(); };
+$('#objL').onchange=e=>{ const o=curObj(); o.L=Math.max(1,parseFloat(e.target.value)||o.L); o.cracks.forEach(c=>c.x=Math.min(c.x,o.L)); if(!OBJ.demo) storeObjs(); renderObj(); };
+$('#objH').onchange=e=>{ const o=curObj(); o.H=Math.max(0.5,parseFloat(e.target.value)||o.H); o.cracks.forEach(c=>c.y=Math.min(c.y,o.H)); if(!OBJ.demo) storeObjs(); renderObj(); };
+$('#objAdd').onchange=e=>{ const nm=e.target.value; e.target.value=''; if(!nm) return; objEdit(); const o=curObj(); o.cracks.push({name:nm,x:+(o.L/2).toFixed(1),y:+(o.H/2).toFixed(1),aLeft:true}); OBJ.pick=o.cracks.length-1; objSave(); try{ objCv.scrollIntoView({behavior:'smooth',block:'center'}); }catch(err){} };
+$('#objDel').onclick=()=>{ if(OBJ.demo) return; delete OBJ.data[OBJ.cur]; OBJ.cur=Object.keys(OBJ.data)[0]||''; OBJ.demo=!OBJ.cur; OBJ.pick=-1; storeObjs(); renderObj(); toast('Objekt smazán'); };
+objCv.addEventListener('click',e=>{ const o=curObj(); const r=objCv.getBoundingClientRect(); const W=r.width; const M=objModel(o); const pad=26, sc=(W-2*M.L/1000*0)/1; const scale=(W-2*pad)/M.L; const top=pad+12, base=top+M.H*scale; const mx=(e.clientX-r.left-pad)/scale/1000, my=(base-(e.clientY-r.top))/scale/1000;
+  if(OBJ.pick>=0&&o.cracks[OBJ.pick]){ objEdit(); const c=curObj().cracks[OBJ.pick]; c.x=+Math.max(0,Math.min(o.L,mx)).toFixed(2); c.y=+Math.max(0,Math.min(o.H,my)).toFixed(2); OBJ.pick=-1; objSave(); return; }
+  let best=-1,bd=0.6; o.cracks.forEach((c,i)=>{ const d=Math.hypot(c.x-mx,c.y-my); if(d<bd){ bd=d; best=i; } }); OBJ.pick=best; renderObj(); });
+new ResizeObserver(()=>{ if(objLoaded) renderObj(); }).observe($('#sec-obj'));
 
 /* ---------- PDF protokol (jsPDF + vložené písmo s češtinou) ---------- */
 try{ S.auth=localStorage.getItem('trhlina.auth')||''; }catch(e){ S.auth=''; } $('#pAuth').value=S.auth;
@@ -657,15 +787,15 @@ function buildPdf(){ const r=R; const { jsPDF }=window.jspdf; const doc=new jsPD
   // vyhodnocení
   section('Vyhodnocení');
   const V=$('#verdict'); const lvl=V.dataset.level||'neutral'; const kick=(V.querySelector('.kicker')||{}).textContent||''; const h3=(V.querySelector('h3')||{}).textContent||''; const pp=((V.querySelector('p')||{}).textContent||'').replace(/\s+/g,' '); const lis=[...V.querySelectorAll('li')].map(e=>e.textContent.replace(/\s+/g,' '));
-  const y0=y; font('dvm','normal',8,C.muted); need(6); doc.text(kick.toUpperCase(),ML+5,y+3); y+=5; 
+  const y0=y, pg0=doc.getNumberOfPages(); font('dvm','normal',8,C.muted); need(6); doc.text(kick.toUpperCase(),ML+5,y+3); y+=5; 
   font('dvs','bold',12.5,C.ink); doc.splitTextToSize(h3,TW-5).forEach(t=>{ need(lh(12.5)); doc.text(t,ML+5,y+lh(12.5)*0.75); y+=lh(12.5); }); y+=1;
   font('dvs','normal',9.5,C.ink); doc.splitTextToSize(pp,TW-5).forEach(t=>{ need(lh(9.5)); doc.text(t,ML+5,y+lh(9.5)*0.75); y+=lh(9.5); });
   for(const li of lis){ y+=0.6; const ls=doc.splitTextToSize(li,TW-10); ls.forEach((t,i)=>{ need(lh(9.5)); if(i===0) doc.text('•',ML+6,y+lh(9.5)*0.75); doc.text(t,ML+10,y+lh(9.5)*0.75); y+=lh(9.5); }); }
-  doc.setFillColor(...(C[lvl]||C.neutral)); if(y>y0) doc.rect(ML,y0,1.6,Math.max(4,y-y0),'F'); y+=3;
+  doc.setFillColor(...(C[lvl]||C.neutral)); if(y>y0&&doc.getNumberOfPages()===pg0) doc.rect(ML,y0,1.6,Math.max(4,y-y0),'F'); y+=3;
   // KPI
   if(r.n){ const kp=[['Σ|mx| / Σ|my|',r.R===Infinity?'∞':fmt(r.R,1)],['mx ≥ my',`${r.share} / ${r.n}`],[`šířka ø / max [${u}]`,`${fmt(r.wMean,1)} / ${fmt(r.wMax,1)}`],[`ø mx · ø my [${u}]`,`${fmt(r.mxMean,1)} · ${fmt(r.myMean,1)}`]];
     need(15); const cw=TW/4; kp.forEach(([l,v],i)=>{ const x=ML+i*cw; doc.setDrawColor(...C.rule); doc.setLineWidth(0.3); doc.rect(x+0.5,y,cw-1,13); font('dvm','normal',7.2,C.muted); doc.text(l,x+2.5,y+4.2); font('dvm','normal',12.5,i===0&&lvl!=='neutral'?C[lvl]:C.ink); doc.text(v,x+2.5,y+10.5); }); y+=16;
-    if(r.kin){ const k=r.kin; para(`Kinematický rozbor (model tuhého tělesa, ${r.n} dvojic): posun ${fmt(k.tx,2)} / ${fmt(k.ty,2)} ${u}, pootočení ${fmt(k.theta*1000,3)} mrad, podíl rotace na rozpětí bodů ρ = ${k.rho===Infinity?'∞':fmt(k.rho,2)} – ${r.rotFlag?'významné otáčení částí':'převážně posun bez otáčení'}${r.signChange?', znaménko mx se po délce trhliny mění':''}. Reziduum fitu ${fmt(k.rms,2)} ${u}.`,9,{col:C.ink}); } }
+    if(r.kin){ const k=r.kin; para(`Kinematický rozbor (model tuhého tělesa, ${r.n} dvojic): posun ${fmt(k.tx,2)} / ${fmt(k.ty,2)} ${u}, pootočení ${fmt(k.theta*1000,3)}${k.sth<Infinity?' ± '+fmt(k.sth*1000,3):''} mrad, podíl rotace na rozpětí bodů ρ = ${k.rho===Infinity?'∞':fmt(k.rho,2)} – ${r.rotFlag?'významné otáčení částí':'převážně posun bez otáčení'}${r.signChange?', znaménko mx se po délce trhliny mění':''}. Reziduum fitu ${fmt(k.rms,2)} ${u}.`,9,{col:C.ink}); } }
   // snímek
   const img=renderAnnotated(); if(img){ let avail=BOT-y-24; if(avail<75){ doc.addPage(); y=15; avail=BOT-y-24; } const maxH=Math.min(150,avail); let w=TW, h=TW*img.h/img.w; if(h>maxH){ h=maxH; w=h*img.w/img.h; } section('Snímek trhliny'); const x=ML+(TW-w)/2; doc.addImage(img.url,'JPEG',x,y,w,h); doc.setDrawColor(...C.rule); doc.rect(x,y,w,h); y+=h+2;
     para('Obr. 1 – Dvojice stejnolehlých bodů: A (červeně) na levé/spodní části, B (modře) na protější straně trhliny; oranžově vektor posunu A→B a měřítko, modrá čárkovaná osa = ložná spára (směr x).',8,{col:C.muted}); }
@@ -691,9 +821,19 @@ function buildPdf(){ const r=R; const { jsPDF }=window.jspdf; const doc=new jsPD
       font('dvm','normal',7.5,C.muted); doc.text(fmt(w1/1.15,1),gx-1.5,Y(w1/1.15)+1,{align:'right'}); doc.text('0',gx-1.5,y+gh+1,{align:'right'}); doc.text(new Date(t0).toLocaleDateString('cs-CZ'),gx,y+gh+4.5); doc.text(new Date(t1).toLocaleDateString('cs-CZ'),gx+gw,y+gh+4.5,{align:'right'}); doc.text(`šířka [${last.unit}]`,gx+1.5,y+3);
       doc.setDrawColor(...C[lv]); doc.setLineWidth(0.7); for(let i=1;i<recs.length;i++) doc.line(X(recs[i-1].t),Y(recs[i-1].w),X(recs[i].t),Y(recs[i].w)); doc.setFillColor(...C[lv]); recs.forEach(q=>doc.circle(X(q.t),Y(q.w),0.9,'F')); y+=gh+7;
       para(msg,9.5,{col:C[lv]}); } }
+  // kinematika objektu
+  { const o=OBJ.demo?null:curObj(); const nm=(S.name||'').trim(); if(o&&o.cracks.some(c=>c.name===nm)){ const M=objModel(o); if(M.cr.length){ const V=objVerdict(M);
+    const W=1000, Hpx=objCanvasH(W,M); const oc=document.createElement('canvas'); oc.width=W*2; oc.height=Hpx*2; const c2=oc.getContext('2d'); c2.setTransform(2,0,0,2,0,0); const root=document.documentElement, th=root.getAttribute('data-theme'); root.setAttribute('data-theme','light'); try{ drawObject(c2,W,Hpx,M,o,-1); } finally{ if(th==null) root.removeAttribute('data-theme'); else root.setAttribute('data-theme',th); }
+    const ih=TW*Hpx/W; if(y+ih+40>BOT){ doc.addPage(); y=15; } section('Kinematika objektu – '+OBJ.cur); doc.addImage(oc.toDataURL('image/jpeg',0.9),'JPEG',ML,y,TW,ih); doc.setDrawColor(...C.rule); doc.rect(ML,y,TW,ih); y+=ih+2;
+    para(`Obr. 2 – Stěna ${fmt(o.L,1)} × ${fmt(o.H,1)} m, bloky mezi trhlinami jako tuhá tělesa, posuny zvětšeny; ⊕ středy otáčení; dole profil relativního poklesu základu vůči levému bloku.`,8,{col:C.muted});
+    const y1=y, pg1=doc.getNumberOfPages(); font('dvm','normal',8,C.muted); need(6); doc.text(V.k.toUpperCase(),ML+5,y+3); y+=5; font('dvs','bold',11.5,C.ink); doc.splitTextToSize(V.h,TW-5).forEach(t=>{ need(lh(11.5)); doc.text(t,ML+5,y+lh(11.5)*0.75); y+=lh(11.5); }); y+=1; font('dvs','normal',9.5,C.ink); doc.splitTextToSize(V.p,TW-5).forEach(t=>{ need(lh(9.5)); doc.text(t,ML+5,y+lh(9.5)*0.75); y+=lh(9.5); }); for(const li of V.l){ y+=0.6; doc.splitTextToSize(li,TW-10).forEach((t,i)=>{ need(lh(9.5)); if(i===0) doc.text('•',ML+6,y+lh(9.5)*0.75); doc.text(t,ML+10,y+lh(9.5)*0.75); y+=lh(9.5); }); } doc.setFillColor(...(C[V.level]||C.neutral)); if(doc.getNumberOfPages()===pg1) doc.rect(ML,y1,1.6,Math.max(4,y-y1),'F'); y+=3;
+    const cols=[['trhlina',46,'l'],['x [m]',18,'r'],['Δθ [mrad]',24,'r'],['rozevř. dole/nahoře [mm]',46,'r'],['Δs [mm]',20,'r'],['rot./posun',26,'r']]; const rowH=5.8; need(rowH*(M.cr.length+1)+2);
+    doc.setFillColor(...C.fill); doc.rect(ML,y,TW,rowH,'F'); font('dvm','normal',7.5,C.muted); let x=ML; cols.forEach(([t,w,a])=>{ doc.text(t,a==='r'?x+w-2:x+2,y+4,{align:a==='r'?'right':'left'}); x+=w; }); y+=rowH;
+    M.cr.forEach(cr=>{ const vals=[cr.name.slice(0,26),fmt(cr.x,1),cr.sig?fmt(cr.dth*1000,2):'0 ('+fmt(cr.kin.theta*1000,2)+'±'+fmt(cr.sth*1000,2)+')',`${fmt(cr.oBot,1)} / ${fmt(cr.oTop,1)}`,fmt(cr.ds,1),fmt(cr.q,2)]; font('dvm','normal',8.5,C.ink); let x=ML; cols.forEach(([t,w,a],j)=>{ doc.text(vals[j],a==='r'?x+w-2:x+2,y+4,{align:a==='r'?'right':'left'}); x+=w; }); doc.setDrawColor(...C.rule); doc.setLineWidth(0.2); doc.line(ML,y+rowH,ML+TW,y+rowH); y+=rowH; });
+    y+=1; M.blocks.forEach((b,k)=>{ if(k) para(`Blok ${k}: θ = ${fmt(b.th*1000,2)} mrad, pokles základu ${fmt(b.sL,1)} → ${fmt(b.sR,1)} mm${b.center?`, střed otáčení S${k} = (${fmt(b.center.x/1000,1)}; ${fmt(b.center.y/1000,1)}) m`:''}.`,8.5,{col:C.muted}); }); } } }
   // metodika
   section('Metodika');
-  para('Posun částí zdiva oddělených trhlinou se určuje z vektoru mezi stejnolehlými body (tentýž lom okraje trhliny na obou stranách), rozloženého na složku mx rovnoběžnou se základovou (ložnou) spárou a složku my kolmou na ni. Platí-li empiricky mx ≥ my přibližně po celé délce trhliny, jde o převažující vodorovné odsouvání a svislou složku lze při zesílení vodorovným předpětím zanedbat; převaha my ukazuje na pokles podzákladí, řešený zajištěním založení. Analýza trhlin je doplněna kinematickým rozborem (model tuhého tělesa) – výrazné pootáčení částí ukazuje na dílčí poklesy, kdy samotné vodorovné předepnutí bez zvýšení svislé tuhosti není vhodné.',9);
+  para('Posun částí zdiva oddělených trhlinou se určuje z vektoru mezi stejnolehlými body (tentýž lom okraje trhliny na obou stranách), rozloženého na složku mx rovnoběžnou se základovou (ložnou) spárou a složku my kolmou na ni. Platí-li empiricky mx ≥ my přibližně po celé délce trhliny, jde o převažující vodorovné odsouvání a svislou složku lze při zesílení vodorovným předpětím zanedbat; převaha my ukazuje na pokles podzákladí, řešený zajištěním založení. Analýza trhlin je doplněna kinematickým rozborem (model tuhého tělesa) – výrazné pootáčení částí ukazuje na dílčí poklesy, kdy samotné vodorovné předepnutí bez zvýšení svislé tuhosti není vhodné. Kinematika objektu skládá relativní posuny z více trhlin na jedné stěně: bloky mezi trhlinami jsou tuhé, levý blok referenční, každá trhlina přidává pootočení Δθ a posun; z toho plyne profil relativního poklesu základu a středy otáčení bloků.',9);
   y+=1; para('Osa x je určena '+(S.axisSrc==='joints'?'automaticky z ložných spár na snímku':S.axisSrc==='level'?'z vodováhy telefonu při focení':R.hasAxis?'ručně podle ložné spáry':'jako vodorovná hrana snímku')+'. Přesnost závisí na kolmosti snímku ke zdivu, rozlišení a správné identifikaci stejnolehlých bodů. Protokol je podkladem pro rozhodnutí statika, nenahrazuje stavebně-technický průzkum ani dlouhodobé sledování trhlin.',8.5,{col:C.muted});
   // patička
   const n=doc.getNumberOfPages(); for(let i=1;i<=n;i++){ doc.setPage(i); doc.setDrawColor(...C.rule); doc.setLineWidth(0.3); doc.line(ML,287,ML+TW,287); font('dvm','normal',7.5,C.muted); doc.text(`Analýza trhliny – ${S.name||'neoznačeno'}${S.obj?' · '+S.obj:''}`.slice(0,95),ML,291); doc.text(`strana ${i} / ${n}`,ML+TW,291,{align:'right'}); }
@@ -715,8 +855,9 @@ function loadHist(){ try{ return JSON.parse(localStorage.getItem(LS_HIST)||'{}')
 function storeHist(h){ try{ localStorage.setItem(LS_HIST,JSON.stringify(h)); }catch(e){ toast('Uložení se nezdařilo (plné úložiště?)'); } }
 $('#saveRec').onclick=()=>{ if(!R||!R.n){ toast('Nejsou žádné dvojice'); return; } const name=(S.name||'').trim()||'bez názvu'; S.name=name; $('#crackName').value=name;
   let thumb=null; try{ const oc=document.createElement('canvas'); oc.width=240; oc.height=160; const c=oc.getContext('2d'); c.fillStyle='#000'; c.fillRect(0,0,240,160); const k=Math.min(240/CW,160/CH); c.drawImage(cv,(240-CW*k)/2,(160-CH*k)/2,CW*k,CH*k); thumb=oc.toDataURL('image/jpeg',0.55); }catch(e){}
-  const h=loadHist(); (h[name]=h[name]||[]).push({t:Date.now(),n:R.n,R:R.R===Infinity?null:R.R,w:R.wMean,wMax:R.wMax,mx:R.mxMean,my:R.myMean,unit:R.unit,code:R.code,demo:S.demo,thumb}); storeHist(h); renderHist(); toast('Měření uloženo'); };
-function renderHist(){ const h=loadHist(); const dl=$('#crackNames'); dl.innerHTML=Object.keys(h).map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+  const h=loadHist(); const kin=R.kin?{tx:R.kin.tx,ty:R.kin.ty,theta:R.kin.theta,sth:R.kin.sth===Infinity?null:R.kin.sth,rho:R.kin.rho===Infinity?null:R.kin.rho,rms:R.kin.rms,rot:!!R.rotFlag}:null;
+  (h[name]=h[name]||[]).push({t:Date.now(),n:R.n,R:R.R===Infinity?null:R.R,w:R.wMean,wMax:R.wMax,mx:R.mxMean,my:R.myMean,unit:R.unit,code:R.code,demo:S.demo,thumb,kin}); storeHist(h); renderHist(); toast('Měření uloženo'); };
+function renderHist(){ renderObj(); const h=loadHist(); const dl=$('#crackNames'); dl.innerHTML=Object.keys(h).map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('');
   const name=(S.name||'').trim(); const recs=(h[name]||[]).slice().sort((a,b)=>a.t-b.t); const H=$('#hist'), T=$('#trend'); H.innerHTML=''; T.innerHTML='';
   if(!name){ T.innerHTML=`<p class="small muted" style="margin:0">Zadejte označení trhliny. Uložená sledování: ${Object.keys(h).length?Object.keys(h).join(', '):'žádná'}.</p>`; return; }
   if(!recs.length){ T.innerHTML=`<p class="small muted" style="margin:0">Pro „${name}“ zatím není uložené žádné měření.</p>`; return; }
